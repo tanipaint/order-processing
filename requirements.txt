@@ -1,5 +1,12 @@
-# ここにPython依存ライブラリを記載します
-# 例:
-# fastapi==0.95.0
-# slack_bolt==1.27.0
-# openai==0.27.0
+# ランタイム依存ライブラリ
+fastapi==0.95.0
+uvicorn[standard]==0.22.0
+slack_bolt==1.22.0
+openai==0.27.0
+python-dotenv==1.0.0
+httpx==0.23.3
+
+# 開発／テスト用依存ライブラリ
+pytest==7.4.2
+pytest-cov==4.1.0
+pre-commit==3.4.0
