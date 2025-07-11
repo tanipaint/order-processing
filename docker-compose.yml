@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: order-processing-app
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+    ports:
+      - "8000:8000"
+    command: ["python", "-m", "src.main"]
