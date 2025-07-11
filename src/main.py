@@ -4,8 +4,8 @@
 """
 import os
 
-from fastapi import FastAPI
 import uvicorn
+from fastapi import FastAPI
 
 app = FastAPI(
     title="注文処理システム",
