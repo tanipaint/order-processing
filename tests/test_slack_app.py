@@ -1,5 +1,8 @@
 import pytest
 
+# Slack Bolt がインストールされていない環境ではテストをスキップ
+pytest.importorskip("slack_bolt")
+
 
 @pytest.fixture(autouse=True)
 def set_slack_env(monkeypatch):
@@ -9,8 +12,12 @@ def set_slack_env(monkeypatch):
 
 def test_slack_app_initialization():
     import importlib
-    mod = importlib.reload(__import__("src.phase3.slack_app", fromlist=["slack_app", "slack_handler"]))
+
+    mod = importlib.reload(
+        __import__("src.phase3.slack_app", fromlist=["slack_app", "slack_handler"])
+    )
     assert hasattr(mod, "slack_app"), "slack_app が存在しません"
     assert hasattr(mod, "slack_handler"), "slack_handler が存在しません"
     from slack_bolt.async_app import AsyncApp
+
     assert isinstance(mod.slack_app, AsyncApp)
