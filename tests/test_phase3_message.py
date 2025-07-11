@@ -24,5 +24,14 @@ def test_build_order_notification_in_stock():
 
 
 def test_build_order_notification_out_of_stock():
-    payload = build_order_notification("x", {"customer_name": "B店", "product_id": "X", "quantity": 1, "delivery_date": "2025-12-31"}, in_stock=False)
+    payload = build_order_notification(
+        "x",
+        {
+            "customer_name": "B店",
+            "product_id": "X",
+            "quantity": 1,
+            "delivery_date": "2025-12-31",
+        },
+        in_stock=False,
+    )
     assert "❌ 在庫不足" in payload["blocks"][2]["text"]["text"]

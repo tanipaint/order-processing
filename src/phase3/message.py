@@ -1,6 +1,6 @@
 """Phase3: Slack 注文通知メッセージフォーマット設計"""
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 def build_order_notification(
@@ -21,15 +21,19 @@ def build_order_notification(
 
     blocks: List[Dict[str, Any]] = []
     # 見出し
-    blocks.append({
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": ":package: 新しい注文が届きました"},
-    })
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": ":package: 新しい注文が届きました"},
+        }
+    )
     # 原文
-    blocks.append({
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": f"*原文：*```{original_text}```"},
-    })
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*原文：*```{original_text}```"},
+        }
+    )
     # 抽出内容
     detail_lines = [
         f"- 顧客: {extracted.get('customer_name')}",
@@ -38,16 +42,28 @@ def build_order_notification(
         f"- 配送希望日: {extracted.get('delivery_date')}",
         f"- 在庫: {stock_status}",
     ]
-    blocks.append({
-        "type": "section",
-        "text": {"type": "mrkdwn", "text": "*抽出内容：*\n" + "\n".join(detail_lines)},
-    })
+    blocks.append(
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "*抽出内容：*\n" + "\n".join(detail_lines)},
+        }
+    )
     # ボタン
-    blocks.append({
-        "type": "actions",
-        "elements": [
-            {"type": "button", "text": {"type": "plain_text", "text": "✅ 承認"}, "value": "approve"},
-            {"type": "button", "text": {"type": "plain_text", "text": "❌ 差し戻し"}, "value": "reject"},
-        ],
-    })
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "✅ 承認"},
+                    "value": "approve",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "❌ 差し戻し"},
+                    "value": "reject",
+                },
+            ],
+        }
+    )
     return {"blocks": blocks}
