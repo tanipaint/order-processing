@@ -5,27 +5,26 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-# 環境変数からNotion設定を取得
-NOTION_API_KEY = os.getenv("NOTION_API_KEY")
-DATABASE_ID_PRODUCTS = os.getenv("NOTION_DATABASE_ID_PRODUCTS")
-DATABASE_ID_CUSTOMERS = os.getenv("NOTION_DATABASE_ID_CUSTOMERS")
-DATABASE_ID_ORDERS = os.getenv("NOTION_DATABASE_ID_ORDERS")
-
-if not NOTION_API_KEY:
-    raise ValueError("Missing NOTION_API_KEY environment variable")
-
-_HEADERS = {
-    "Authorization": f"Bearer {NOTION_API_KEY}",
-    "Notion-Version": "2022-06-28",
-    "Content-Type": "application/json",
-}
-
 
 class NotionClient:
     """Notion APIへの問い合わせを行うクライアント"""
 
     def __init__(self, base_url: str = "https://api.notion.com/v1"):
-        self.client = httpx.Client(base_url=base_url, headers=_HEADERS)
+        # 必須環境変数の検証
+        api_key = os.getenv("NOTION_API_KEY")
+        if not api_key:
+            raise ValueError("Missing NOTION_API_KEY environment variable")
+
+        self.database_id_products = os.getenv("NOTION_DATABASE_ID_PRODUCTS")
+        self.database_id_customers = os.getenv("NOTION_DATABASE_ID_CUSTOMERS")
+        self.database_id_orders = os.getenv("NOTION_DATABASE_ID_ORDERS")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+        }
+        self.client = httpx.Client(base_url=base_url, headers=headers)
 
     def query_database(
         self, database_id: str, filter: Optional[Dict[str, Any]] = None
@@ -40,7 +39,7 @@ class NotionClient:
     def get_product(self, product_id: str) -> Optional[Dict[str, Any]]:
         """指定IDの商品ページを取得"""
         result = self.query_database(
-            DATABASE_ID_PRODUCTS,
+            self.database_id_products,
             {"property": "id", "rich_text": {"equals": product_id}},
         )
         items = result.get("results", [])
@@ -49,7 +48,7 @@ class NotionClient:
     def get_customer(self, customer_name: str) -> Optional[Dict[str, Any]]:
         """指定顧客名の顧客ページを取得"""
         result = self.query_database(
-            DATABASE_ID_CUSTOMERS,
+            self.database_id_customers,
             {"property": "name", "title": {"equals": customer_name}},
         )
         items = result.get("results", [])
@@ -90,7 +89,10 @@ class NotionClient:
         }
         resp = self.client.post(
             "/pages",
-            json={"parent": {"database_id": DATABASE_ID_ORDERS}, "properties": props},
+            json={
+                "parent": {"database_id": self.database_id_orders},
+                "properties": props,
+            },
         )
         resp.raise_for_status()
         return resp.json()
