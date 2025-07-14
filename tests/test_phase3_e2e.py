@@ -9,7 +9,7 @@ def setup_env(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def prepare_app(monkeypatch):
+def prepare_app(monkeypatch, setup_env):
     # モジュールをリロードしてテスト用envを反映
     import importlib
 
