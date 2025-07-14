@@ -5,7 +5,11 @@
 import os
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+
+# .envファイルから環境変数をロード
+load_dotenv()
 
 app = FastAPI(
     title="注文処理システム",
@@ -40,4 +44,5 @@ async def slack_events(req: Request):
     """Slack Events API 用エンドポイント"""
     from src.phase3.slack_app import slack_handler
 
+    # Boltアプリへリクエストをハンドル (Starlette adapter)
     return await slack_handler.handle(req)

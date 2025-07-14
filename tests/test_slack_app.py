@@ -1,8 +1,5 @@
 import pytest
 
-# TODO: CI 環境での依存不整合を解消予定のため一時的にファイル全体をスキップ
-pytest.skip("Skip Slack app initialization tests", allow_module_level=True)
-
 
 @pytest.fixture(autouse=True)
 def set_slack_env(monkeypatch):
@@ -18,6 +15,6 @@ def test_slack_app_initialization():
     )
     assert hasattr(mod, "slack_app"), "slack_app が存在しません"
     assert hasattr(mod, "slack_handler"), "slack_handler が存在しません"
-    from slack_bolt.async_app import AsyncApp
+    from slack_bolt import App
 
-    assert isinstance(mod.slack_app, AsyncApp)
+    assert isinstance(mod.slack_app, App)
