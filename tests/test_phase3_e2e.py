@@ -1,7 +1,5 @@
 import pytest
 
-import src.phase3.slack_app as slack_mod
-
 
 @pytest.fixture(autouse=True)
 def setup_env(monkeypatch):
@@ -30,6 +28,8 @@ def prepare_app(monkeypatch):
 
 @pytest.mark.parametrize("action_type, emoji", [("approve", "✅"), ("reject", "❌")])
 def test_action_handlers_e2e(action_type, emoji, prepare_app):
+    import src.phase3.slack_app as slack_mod
+
     calls = prepare_app
     # ハンドラ取得
     handler = (
