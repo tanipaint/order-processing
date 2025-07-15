@@ -20,6 +20,14 @@ docker-compose up -d
 ## 環境変数
 各種シークレットは`.env`に設定してください。サンプルは`.env.example`を参照。
 
+## 商品データ登録
+
+サンプル商品データをNotionの`products`テーブルへ一括登録するには、以下のコマンドを実行してください:
+
+```bash
+python3 -m src.phase4.seed_products
+```
+
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
 GitHub Issue等に登録してください。
