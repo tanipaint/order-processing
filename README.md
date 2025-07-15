@@ -22,11 +22,23 @@ docker-compose up -d
 
 ## 商品データ登録
 
-サンプル商品データをNotionの`products`テーブルへ一括登録するには、以下のコマンドを実行してください:
+サンプル商品データをNotionの`products`テーブルへ一括登録するには、以下の手順を実施してください:
 
-```bash
-python3 -m src.phase4.seed_products
-```
+- **事前準備**: Notionのproductsデータベースを対象のIntegrationに共有し、データベースIDを取得。
+- `.env`に環境変数を設定:
+
+  ```dotenv
+  NOTION_API_KEY=（統合のシークレットキー）
+  NOTION_DATABASE_ID_PRODUCTS=（productsデータベースのID）
+  NOTION_DATABASE_ID_CUSTOMERS=（customersデータベースのID）
+  NOTION_DATABASE_ID_ORDERS=（ordersデータベースのID）
+  ```
+
+- サンプル一括登録を実行:
+
+  ```bash
+  python3 -m src.phase4.seed_products
+  ```
 
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
