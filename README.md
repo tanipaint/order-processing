@@ -40,6 +40,29 @@ docker-compose up -d
   python3 -m src.phase4.seed_products
   ```
 
+## フェーズ５：自動返信メール送信
+
+注文承認後、自動で顧客へ確認メールを送信するには、以下の環境変数を`.env`に設定します:
+
+```dotenv
+SMTP_HOST=（SMTPサーバホスト）
+SMTP_PORT=587
+SMTP_USER=（送信元メールアドレス）
+SMTP_PASSWORD=（SMTPパスワード）
+```
+
+メール送信用のクライアントは `src.phase5.email_client.EmailClient` を利用します。
+
+承認ハンドラで `OrderService` を生成する際に注入してください:
+
+```python
+from src.phase5.email_client import EmailClient
+from src.phase4.order_service import OrderService
+
+email_client = EmailClient()
+order_service = OrderService(notion_client, email_client)
+```
+
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
 GitHub Issue等に登録してください。
