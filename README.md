@@ -63,6 +63,28 @@ email_client = EmailClient()
 order_service = OrderService(notion_client, email_client)
 ```
 
+## フェーズ７：メール受信リスナー実装
+
+メール受信には以下の環境変数を`.env`に設定します（Gmail想定）:
+
+```dotenv
+IMAP_HOST=imap.gmail.com
+IMAP_USER=（Gmailアドレス）
+IMAP_PASS=（アプリパスワード）
+```
+
+受信したメールは `src.phase7.email_listener.EmailListener` と `parse_email_body` を使って取得・解析できます:
+
+```python
+from src.phase7.email_listener import EmailListener, parse_email_body
+
+listener = EmailListener()
+raw_emails = listener.fetch_unseen_emails()
+for raw in raw_emails:
+    text = parse_email_body(raw)
+    # 注文抽出フローへ渡す
+```
+
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
 GitHub Issue等に登録してください。

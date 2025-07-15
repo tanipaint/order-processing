@@ -2,12 +2,21 @@
 import json
 
 import httpx
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+
+    def load_dotenv():
+        """dotenv未インストール時のダミー実装"""
+        pass
+
 
 from src.phase4.notion_client import NotionClient
 
 
 def main():
+    # .envファイルから環境変数をロード
     load_dotenv()
     products_json = """[
   {
