@@ -1,14 +1,15 @@
 """Phase4: 注文登録＆在庫更新サービス"""
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .notion_client import NotionClient
 
 
 class OrderService:
-    """注文登録と在庫更新ロジックを提供するサービス"""
+    """注文登録と在庫更新ロジックおよび自動返信メール送信を提供するサービス"""
 
-    def __init__(self, notion: NotionClient):
+    def __init__(self, notion: NotionClient, email_client: Optional[Any] = None):
         self.notion = notion
+        self.email_client = email_client
 
     def check_stock(self, product_id: str, quantity: int) -> bool:
         """在庫が足りるかチェック"""
@@ -34,4 +35,19 @@ class OrderService:
         old_stock = self.notion.get_product_stock(order["product_id"])
         new_stock = old_stock - order["quantity"]
         self.notion.update_product_stock(page_id, new_stock)
+        # 3. 自動返信メール送信（オプション）
+        if self.email_client:
+            cust_page = self.notion.get_customer(order["customer_name"])
+            # email プロパティが Notion 上で email 型であることが前提
+            email_addr = cust_page.get("properties", {}).get("email", {}).get("email")
+            if email_addr:
+                subject = f"ご注文ありがとうございます（{order['order_id']}）"
+                body = (
+                    f"{order['customer_name']} 様\n"
+                    f"ご注文 {order['order_id']} を承りました。\n"
+                    f"商品ID: {order['product_id']}\n"
+                    f"数量: {order['quantity']}\n"
+                    f"配送予定日: {order['delivery_date']}\n"
+                )
+                self.email_client.send_email(email_addr, subject, body)
         return created
