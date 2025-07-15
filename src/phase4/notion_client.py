@@ -96,3 +96,24 @@ class NotionClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    def create_product(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """productsデータベースに商品ページを作成"""
+        props: Dict[str, Any] = {
+            "id": {"rich_text": [{"text": {"content": data["id"]}}]},
+            "name": {"title": [{"text": {"content": data["name"]}}]},
+            "description": {"rich_text": [{"text": {"content": data["description"]}}]},
+            "price": {"number": data["price"]},
+            "stock": {"number": data["stock"]},
+            "created_at": {"date": {"start": data["created_at"]}},
+            "last_updated": {"date": {"start": data["last_updated"]}},
+        }
+        resp = self.client.post(
+            "/pages",
+            json={
+                "parent": {"database_id": self.database_id_products},
+                "properties": props,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
