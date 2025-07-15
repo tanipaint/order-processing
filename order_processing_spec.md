@@ -63,9 +63,9 @@ sequenceDiagram
 | A001  | ノートパソコン    | 15インチディスプレイ搭載の軽量ノートパソコンです。 | 98000  | 12    | 2025-05-10T09:00:00  | 2025-07-15T10:00:00 |
 
 ### 顧客マスタ（customers）
-| name       | first_order_date | is_existing |
-|------------|------------------|-------------|
-| 山田商店    | 2023-05-01       | true        |
+| id         | name             | email                   | first_order_date | is_existing |
+|------------|------------------|-------------------------|------------------|-------------|
+| CUST001    | 山田商店          | yamada@example.com      | 2023-05-01       | true        |
 
 ### 注文管理（orders）
 | order_id | customer_name | product_id | quantity | delivery_date | status     | approved_by |
