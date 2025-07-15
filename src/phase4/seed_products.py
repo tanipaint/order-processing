@@ -1,6 +1,7 @@
 """商品データをNotionのproductsテーブルへ登録するスクリプト"""
 import json
 
+import httpx
 from dotenv import load_dotenv
 
 from src.phase4.notion_client import NotionClient
@@ -59,8 +60,15 @@ def main():
     products = json.loads(products_json)
     client = NotionClient()
     for prod in products:
-        res = client.create_product(prod)
-        print(f"Created product page id: {res.get('id')} for {prod['id']}")
+        try:
+            res = client.create_product(prod)
+            print(f"Created product page id: {res.get('id')} for {prod['id']}")
+        except httpx.HTTPStatusError as e:
+            # Notion側で404などが返る場合、DB IDや統合権限を確認してください
+            print(
+                f"Failed to create product {prod['id']}: {e.response.status_code} {e.response.text}"
+            )
+            raise
 
 
 if __name__ == "__main__":

@@ -18,6 +18,15 @@ class NotionClient:
         self.database_id_products = os.getenv("NOTION_DATABASE_ID_PRODUCTS")
         self.database_id_customers = os.getenv("NOTION_DATABASE_ID_CUSTOMERS")
         self.database_id_orders = os.getenv("NOTION_DATABASE_ID_ORDERS")
+        # 必須DB IDの検証
+        if not self.database_id_products:
+            raise ValueError("Missing NOTION_DATABASE_ID_PRODUCTS environment variable")
+        if not self.database_id_customers:
+            raise ValueError(
+                "Missing NOTION_DATABASE_ID_CUSTOMERS environment variable"
+            )
+        if not self.database_id_orders:
+            raise ValueError("Missing NOTION_DATABASE_ID_ORDERS environment variable")
 
         headers = {
             "Authorization": f"Bearer {api_key}",
