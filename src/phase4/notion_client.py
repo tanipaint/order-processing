@@ -109,8 +109,9 @@ class NotionClient:
     def create_product(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """productsデータベースに商品ページを作成"""
         props: Dict[str, Any] = {
-            "id": {"rich_text": [{"text": {"content": data["id"]}}]},
-            "name": {"title": [{"text": {"content": data["name"]}}]},
+            # Notion上のプロパティ型(id: title, name: rich_text)に合わせて設定
+            "id": {"title": [{"text": {"content": data["id"]}}]},
+            "name": {"rich_text": [{"text": {"content": data["name"]}}]},
             "description": {"rich_text": [{"text": {"content": data["description"]}}]},
             "price": {"number": data["price"]},
             "stock": {"number": data["stock"]},
