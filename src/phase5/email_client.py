@@ -3,13 +3,20 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+
+    def load_dotenv():
+        """dotenv未インストール時のダミー実装"""
+        pass
 
 
 class EmailClient:
     """SMTPを使ってメール送信を行うクライアント"""
 
     def __init__(self):
+        # .envファイルから環境変数をロード
         load_dotenv()
         host = os.getenv("SMTP_HOST")
         port = os.getenv("SMTP_PORT")

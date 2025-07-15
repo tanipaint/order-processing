@@ -5,7 +5,16 @@
 import os
 
 import uvicorn
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+
+    def load_dotenv():
+        """dotenv未インストール時のダミー実装"""
+        pass
+
+
 from fastapi import FastAPI, Request
 
 # .envファイルから環境変数をロード

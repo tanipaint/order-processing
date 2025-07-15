@@ -3,7 +3,15 @@
 import os
 from datetime import datetime
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+
+    def load_dotenv():
+        """dotenv未インストール時のダミー実装"""
+        pass
+
+
 from slack_bolt import App
 from slack_bolt.adapter.starlette import SlackRequestHandler
 
