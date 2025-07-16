@@ -45,7 +45,7 @@ def main():
             time.sleep(POLL_INTERVAL)
             continue
         logger.info(f"  → found {len(raws)} unseen email(s)")
-        for num, raw in raws:
+        for raw in raws:
             try:
                 text = parse_email_body(raw)
                 # 注文抽出
@@ -63,9 +63,6 @@ def main():
                     channel=SLACK_CHANNEL,
                     **payload,
                 )
-                # 正常処理したメールは既読にする
-                listener.mark_as_seen(num)
-                logger.info(f"Marked email {num!r} as seen")
             except Exception as e:
                 logger.error(f"Failed to process email: {e}", exc_info=True)
         time.sleep(POLL_INTERVAL)
