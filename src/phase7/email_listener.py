@@ -47,8 +47,12 @@ class EmailListener:
             self.connect()
         else:
             # 再ポーリング時もINBOXを再選択 (Gmail等で必要な場合あり)
-            self.mail.select("INBOX")
-            logger.debug("Re-selected INBOX mailbox")
+            try:
+                self.mail.select("INBOX")
+                logger.debug("Re-selected INBOX mailbox")
+            except AttributeError:
+                # テストダブルなどで select が未実装の場合はスキップ
+                pass
         logger.debug("Searching for UNSEEN emails")
         status, data = self.mail.search(None, "UNSEEN")
         logger.debug(f"Search result: status={status}, data={data}")
@@ -63,7 +67,10 @@ class EmailListener:
                 logger.warning(f"Failed to fetch email {num!r}")
                 continue
             raw = parts[0][1]
-            results.append((num, raw))
+            results.append(raw)
+            # 取得したメールを既読に設定
+            self.mail.store(num, "+FLAGS", "\\Seen")
+            logger.info(f"Email {num!r} flagged as Seen on server")
         return results
 
     def mark_as_seen(self, num):

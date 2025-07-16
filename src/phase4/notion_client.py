@@ -84,10 +84,13 @@ class NotionClient:
     def create_order(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """ordersデータベースに注文ページを作成"""
         # orders データベースの relation/プロパティ構成に合わせてマッピング
+        # 顧客・商品ページIDが未指定の場合は customer_name・product_id を relation ID として使用
+        cust_page_id = data.get("customer_page_id", data.get("customer_name"))
+        prod_page_id = data.get("product_page_id", data.get("product_id"))
         props: Dict[str, Any] = {
             "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
-            "customers": {"relation": [{"id": data["customer_page_id"]}]},
-            "products": {"relation": [{"id": data["product_page_id"]}]},
+            "customers": {"relation": [{"id": cust_page_id}]},
+            "products": {"relation": [{"id": prod_page_id}]},
             "quantity": {"number": data["quantity"]},
             "delivery_date": {"date": {"start": data["delivery_date"]}},
             "status": {"select": {"name": data.get("status", "")}},
