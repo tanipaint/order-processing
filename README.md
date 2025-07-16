@@ -85,6 +85,24 @@ for raw in raw_emails:
     # 注文抽出フローへ渡す
 ```
 
+## Slack App セットアップ
+
+### Interactivity & Events 設定
+- Slack App 管理画面 > **Interactivity & Shortcuts** で次を設定:
+  - Request URL: `https://<YOUR_DOMAIN_OR_NGROK>/slack/events`
+- Slack App 管理画面 > **Event Subscriptions** で次を設定:
+  - Enable Events: On
+  - Request URL: `https://<YOUR_DOMAIN_OR_NGROK>/slack/events`
+  - Subscribe to Bot Events: 必要に応じて
+
+### OAuth & Permissions (Bot Token Scopes)
+- chat:write
+- commands
+- actions:read
+- users:read
+
+インタラクティブコンポーネントのRequest URLが未設定の場合、ボタン押下時に「インタラクティブな応答を処理するように設定されていません」というエラーが発生します。
+
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
 GitHub Issue等に登録してください。
