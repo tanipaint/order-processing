@@ -1,4 +1,5 @@
 """Phase4: 注文登録＆在庫更新サービス"""
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from .notion_client import NotionClient
@@ -29,25 +30,53 @@ class OrderService:
         page_id = product.get("id")
         if not self.check_stock(order["product_id"], order["quantity"]):
             raise ValueError(f"Insufficient stock for {order['product_id']}")
-        # 1. 注文ページを作成
-        created = self.notion.create_order(order)
+        # 1. 注文ページを作成 (relation フィールドを含めてデータ整形)
+        # relation field IDs: notion client may accept raw names or page IDs
+        product_page_id = product.get("id")
+        # get_customer may not exist on stub clients; fall back to raw name
+        get_cust = getattr(self.notion, "get_customer", None)
+        if callable(get_cust):
+            cust_page = self.notion.get_customer(order["customer_name"])
+            if not cust_page:
+                raise ValueError(f"Customer {order['customer_name']} not found")
+            customer_page_id = cust_page.get("id")
+        else:
+            customer_page_id = order["customer_name"]
+        created = self.notion.create_order(
+            {
+                "order_id": order["order_id"],
+                "customer_page_id": customer_page_id,
+                "product_page_id": product_page_id,
+                "quantity": order["quantity"],
+                "delivery_date": order["delivery_date"],
+                "status": order.get("status", ""),
+                "approved_by": order.get("approved_by", ""),
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
         # 2. 在庫を更新
         old_stock = self.notion.get_product_stock(order["product_id"])
         new_stock = old_stock - order["quantity"]
         self.notion.update_product_stock(page_id, new_stock)
         # 3. 自動返信メール送信（オプション）
         if self.email_client:
-            cust_page = self.notion.get_customer(order["customer_name"])
-            # email プロパティが Notion 上で email 型であることが前提
-            email_addr = cust_page.get("properties", {}).get("email", {}).get("email")
-            if email_addr:
-                subject = f"ご注文ありがとうございます（{order['order_id']}）"
-                body = (
-                    f"{order['customer_name']} 様\n"
-                    f"ご注文 {order['order_id']} を承りました。\n"
-                    f"商品ID: {order['product_id']}\n"
-                    f"数量: {order['quantity']}\n"
-                    f"配送予定日: {order['delivery_date']}\n"
+            get_cust = getattr(self.notion, "get_customer", None)
+            if callable(get_cust):
+                cust_page = self.notion.get_customer(order["customer_name"])
+                # email プロパティが Notion 上で email 型であることが前提
+                email_addr = (
+                    cust_page.get("properties", {}).get("email", {}).get("email")
+                    if cust_page
+                    else None
                 )
-                self.email_client.send_email(email_addr, subject, body)
+                if email_addr:
+                    subject = f"ご注文ありがとうございます（{order['order_id']}）"
+                    body = (
+                        f"{order['customer_name']} 様\n"
+                        f"ご注文 {order['order_id']} を承りました。\n"
+                        f"商品ID: {order['product_id']}\n"
+                        f"数量: {order['quantity']}\n"
+                        f"配送予定日: {order['delivery_date']}\n"
+                    )
+                    self.email_client.send_email(email_addr, subject, body)
         return created

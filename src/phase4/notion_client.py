@@ -58,7 +58,7 @@ class NotionClient:
         """指定顧客名の顧客ページを取得"""
         result = self.query_database(
             self.database_id_customers,
-            {"property": "name", "title": {"equals": customer_name}},
+            {"property": "customer_name", "title": {"equals": customer_name}},
         )
         items = result.get("results", [])
         return items[0] if items else None
@@ -83,17 +83,22 @@ class NotionClient:
 
     def create_order(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """ordersデータベースに注文ページを作成"""
+        # orders データベースの relation/プロパティ構成に合わせてマッピング
+        # 顧客・商品ページIDが未指定の場合は customer_name・product_id を relation ID として使用
+        cust_page_id = data.get("customer_page_id", data.get("customer_name"))
+        prod_page_id = data.get("product_page_id", data.get("product_id"))
         props: Dict[str, Any] = {
             "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
-            "customer_name": {
-                "rich_text": [{"text": {"content": data["customer_name"]}}]
-            },
-            "product_id": {"rich_text": [{"text": {"content": data["product_id"]}}]},
+            "customers": {"relation": [{"id": cust_page_id}]},
+            "products": {"relation": [{"id": prod_page_id}]},
             "quantity": {"number": data["quantity"]},
             "delivery_date": {"date": {"start": data["delivery_date"]}},
             "status": {"select": {"name": data.get("status", "")}},
             "approved_by": {
                 "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
+            },
+            "created_at": {
+                "date": {"start": data.get("created_at", datetime.utcnow().isoformat())}
             },
         }
         resp = self.client.post(
