@@ -1,4 +1,5 @@
 """Phase4: 注文登録＆在庫更新サービス"""
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from .notion_client import NotionClient
@@ -29,8 +30,24 @@ class OrderService:
         page_id = product.get("id")
         if not self.check_stock(order["product_id"], order["quantity"]):
             raise ValueError(f"Insufficient stock for {order['product_id']}")
-        # 1. 注文ページを作成
-        created = self.notion.create_order(order)
+        # 1. 注文ページを作成 (relation フィールドを含めてデータ整形)
+        cust_page = self.notion.get_customer(order["customer_name"])
+        if not cust_page:
+            raise ValueError(f"Customer {order['customer_name']} not found")
+        product_page_id = product.get("id")
+        customer_page_id = cust_page.get("id")
+        created = self.notion.create_order(
+            {
+                "order_id": order["order_id"],
+                "customer_page_id": customer_page_id,
+                "product_page_id": product_page_id,
+                "quantity": order["quantity"],
+                "delivery_date": order["delivery_date"],
+                "status": order.get("status", ""),
+                "approved_by": order.get("approved_by", ""),
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
         # 2. 在庫を更新
         old_stock = self.notion.get_product_stock(order["product_id"])
         new_stock = old_stock - order["quantity"]

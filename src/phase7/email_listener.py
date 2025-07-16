@@ -1,6 +1,7 @@
 """Phase7: IMAPメール受信リスナーとメール本文パースロジック"""
 import email
 import imaplib
+import logging
 import os
 
 try:
@@ -14,6 +15,9 @@ except ImportError:
 
 # .envファイルから環境変数をロード
 load_dotenv()
+
+
+logger = logging.getLogger(__name__)
 
 
 class EmailListener:
@@ -35,25 +39,39 @@ class EmailListener:
         self.mail = imaplib.IMAP4_SSL(self.host)
         self.mail.login(self.user, self.password)
         self.mail.select("INBOX")
+        logger.info(f"IMAP connected to {self.host} as {self.user}")
 
     def fetch_unseen_emails(self):
-        """未読メールを取得し、再取得しないよう既読にする"""
+        """未読メールを取得する。既読フラグは外部で制御する"""
         if self.mail is None:
             self.connect()
+        else:
+            # 再ポーリング時もINBOXを再選択 (Gmail等で必要な場合あり)
+            self.mail.select("INBOX")
+            logger.debug("Re-selected INBOX mailbox")
+        logger.debug("Searching for UNSEEN emails")
         status, data = self.mail.search(None, "UNSEEN")
+        logger.debug(f"Search result: status={status}, data={data}")
         if status != "OK":
+            logger.error("IMAP search failed")
             return []
         messages = data[0].split()
-        emails = []
+        results = []
         for num in messages:
             ok, parts = self.mail.fetch(num, "(RFC822)")
             if ok != "OK":
+                logger.warning(f"Failed to fetch email {num!r}")
                 continue
             raw = parts[0][1]
-            emails.append(raw)
-            # 取得後は既読にする
-            self.mail.store(num, "+FLAGS", "\\Seen")
-        return emails
+            results.append((num, raw))
+        return results
+
+    def mark_as_seen(self, num):
+        """指定したメッセージ番号を既読にする"""
+        if self.mail is None:
+            self.connect()
+        self.mail.store(num, "+FLAGS", "\\Seen")
+        logger.info(f"Email {num!r} flagged as Seen on server")
 
 
 def parse_email_body(raw_email: bytes) -> str:

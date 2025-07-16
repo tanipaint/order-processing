@@ -19,6 +19,13 @@ def parse_order(text: str) -> OrderData:
     """テキストを受け取り、OCR→LLM抽出→OrderDataに変換するパイプライン"""
     ocr_text = ocr_process(text)
     fields = extract_order_fields(ocr_text)
+    # 必須フィールドの検証
+    required = ["customer_name", "product_id", "quantity", "delivery_date"]
+    missing = [k for k in required if k not in fields]
+    if missing:
+        raise ValueError(
+            f"Missing required fields in extracted data: {missing}, extracted={fields!r}"
+        )
     # ISOフォーマットの日付文字列をdateオブジェクトに変換
     raw_date = fields.get("delivery_date", "")
     if not raw_date:

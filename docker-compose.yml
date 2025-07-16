@@ -10,3 +10,12 @@ services:
     ports:
       - "8000:8000"
     command: ["python", "-m", "src.main"]
+
+  mail-bridge:
+    build: .
+    container_name: order-processing-bridge
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+    command: ["python", "-m", "src.phase7.bridge"]

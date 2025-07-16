@@ -93,10 +93,11 @@ sequenceDiagram
 ```
 
 ### 承認後の動作
-- 注文DBに登録（Notion）
-- 在庫数更新（Notion）
-- 顧客に自動返信（メール or LINE）
-- Slack上で承認者を表示
+- ボタン押下イベントを受信し、注文IDを特定
+- Notion の orders データベースに注文を登録（order_id, customer_name, product_id, quantity, delivery_date, status='承認済', approved_by）
+- products データベースの stock を quantity 分減算し更新
+- Slack メッセージを更新し、承認者と承認日時を表示
+- 顧客への自動返信（メール or LINE）をテンプレートと承認情報を含めて送信
 
 ---
 
