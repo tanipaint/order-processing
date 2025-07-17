@@ -17,7 +17,14 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # .envファイルから環境変数をロード
+# .envファイルから環境変数をロード
 load_dotenv()
+
+# Slack認証情報の事前チェック
+if not os.getenv("SLACK_BOT_TOKEN") or not os.getenv("SLACK_SIGNING_SECRET"):
+    raise ValueError(
+        "Missing SLACK_BOT_TOKEN or SLACK_SIGNING_SECRET in environment (.env)"
+    )
 
 # ポーリング間隔（秒）
 POLL_INTERVAL = int(os.getenv("IMAP_POLL_INTERVAL", "60"))
