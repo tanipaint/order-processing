@@ -1,5 +1,6 @@
 """Phase3: Slack 注文通知メッセージフォーマット設計"""
 
+import json
 from typing import Any, Dict, List
 
 
@@ -19,6 +20,13 @@ def build_order_notification(
     """
     stock_status = "✅ 在庫あり" if in_stock else "❌ 在庫不足"
 
+    # ボタン押下時のハンドラで使用するため、抽出データをJSONでvalueに埋め込む
+    order_payload = {
+        "customer_name": extracted.get("customer_name"),
+        "product_id": extracted.get("product_id"),
+        "quantity": extracted.get("quantity"),
+        "delivery_date": str(extracted.get("delivery_date")),
+    }
     blocks: List[Dict[str, Any]] = []
     # 見出し
     blocks.append(
@@ -55,13 +63,15 @@ def build_order_notification(
             "elements": [
                 {
                     "type": "button",
+                    "action_id": "approve",
+                    "value": json.dumps(order_payload),
                     "text": {"type": "plain_text", "text": "✅ 承認"},
-                    "value": "approve",
                 },
                 {
                     "type": "button",
+                    "action_id": "reject",
+                    "value": json.dumps(order_payload),
                     "text": {"type": "plain_text", "text": "❌ 差し戻し"},
-                    "value": "reject",
                 },
             ],
         }

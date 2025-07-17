@@ -20,6 +20,13 @@ docker-compose up -d
 ## 環境変数
 各種シークレットは`.env`に設定してください。サンプルは`.env.example`を参照。
 
+以下はSlack通知ブリッジを動作させるために最低限設定が必要なSlack関連の環境変数です:
+```dotenv
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_SIGNING_SECRET=...
+SLACK_CHANNEL=C01234567
+```
+
 ## 商品データ登録
 
 サンプル商品データをNotionの`products`テーブルへ一括登録するには、以下の手順を実施してください:

@@ -6,6 +6,11 @@ def setup_env(monkeypatch):
     # テスト用環境変数設定 (.env読み込み後に上書き)
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
     monkeypatch.setenv("SLACK_SIGNING_SECRET", "test-secret")
+    # Notion連携スタブ用: 環境変数をセット
+    monkeypatch.setenv("NOTION_API_KEY", "dummy")
+    monkeypatch.setenv("NOTION_DATABASE_ID_PRODUCTS", "pid")
+    monkeypatch.setenv("NOTION_DATABASE_ID_CUSTOMERS", "cid")
+    monkeypatch.setenv("NOTION_DATABASE_ID_ORDERS", "oid")
 
 
 @pytest.fixture(autouse=True)
@@ -16,6 +21,10 @@ def prepare_app(monkeypatch, setup_env):
     mod = importlib.reload(
         __import__("src.phase3.slack_app", fromlist=["slack_app", "slack_handler"])
     )
+    # OrderService.process_order をスタブ化（NotionClientとの実接続を回避）
+    from src.phase4.order_service import OrderService
+
+    monkeypatch.setattr(OrderService, "process_order", lambda self, o: {})
     # chat_update をモック
     calls = []
 
