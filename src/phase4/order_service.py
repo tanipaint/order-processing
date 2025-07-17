@@ -34,11 +34,25 @@ class OrderService:
         # relation field IDs: notion client may accept raw names or page IDs
         product_page_id = product.get("id")
         # get_customer may not exist on stub clients; fall back to raw name
+        # 顧客が存在しない場合は自動登録
         get_cust = getattr(self.notion, "get_customer", None)
         if callable(get_cust):
             cust_page = self.notion.get_customer(order["customer_name"])
             if not cust_page:
-                raise ValueError(f"Customer {order['customer_name']} not found")
+                # 新規顧客登録
+                create_cust = getattr(self.notion, "create_customer", None)
+                if not callable(create_cust):
+                    raise ValueError(
+                        f"Customer {order['customer_name']} not found and cannot be created"
+                    )
+                cust_page = self.notion.create_customer(
+                    {
+                        "customer_name": order["customer_name"],
+                        # メールアドレス等追加情報があればdataに含めて使用
+                        "first_order_date": datetime.utcnow().date().isoformat(),
+                        "is_existing": False,
+                    }
+                )
             customer_page_id = cust_page.get("id")
         else:
             customer_page_id = order["customer_name"]

@@ -94,6 +94,7 @@ sequenceDiagram
 
 ### 承認後の動作
 - ボタン押下イベントを受信し、注文IDを特定
+- Notion の customers データベースを参照し、顧客が存在しない場合は新規登録
 - Notion の orders データベースに注文を登録（order_id, customer_name, product_id, quantity, delivery_date, status='承認済', approved_by）
 - products データベースの stock を quantity 分減算し更新
 - Slack メッセージを更新し、承認者と承認日時を表示
