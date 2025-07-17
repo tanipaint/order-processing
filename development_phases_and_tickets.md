@@ -48,7 +48,8 @@
 |     4–3      | 注文登録／在庫更新トランザクション処理                  | orders 登録＋ products の stock マイナス更新を原子性を保って実装 | backend     | ✔️  |
 |     4–4      | Notion 連携の単体テスト                                 | Notion API のモックを使ったユニットテスト                        | backend／qa | ✔️  |
 |     4–5      | 差し戻し時の自動返信メール（オプション）                | 差し戻し理由を組み込んだメールテンプレート作成／送信             | backend     |
-|     4–6      | products テーブルへのサンプル商品一括登録スクリプト実装 | products データを Notion に自動投入するスクリプト                | backend     | ✔️  |
+|     4–6      | 顧客自動登録ロジック実装                              | customers テーブルに存在しない顧客を新規作成                       | backend     |
+|     4–7      | products テーブルへのサンプル商品一括登録スクリプト実装 | products データを Notion に自動投入するスクリプト                | backend     | ✔️  |
 
 ## 🚩 フェーズ５：自動返信（メール／LINE）
 

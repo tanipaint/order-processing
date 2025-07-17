@@ -132,3 +132,28 @@ class NotionClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    def create_customer(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """customersデータベースに顧客ページを作成（存在しない場合の新規登録用）"""
+        # title: customer_name, email, first_order_date, is_existing
+        props: Dict[str, Any] = {
+            "customer_name": {"title": [{"text": {"content": data["customer_name"]}}]},
+            "email": {"email": data.get("email", "")},
+            "first_order_date": {
+                "date": {
+                    "start": data.get(
+                        "first_order_date", datetime.utcnow().date().isoformat()
+                    )
+                }
+            },
+            "is_existing": {"checkbox": data.get("is_existing", False)},
+        }
+        resp = self.client.post(
+            "/pages",
+            json={
+                "parent": {"database_id": self.database_id_customers},
+                "properties": props,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()
