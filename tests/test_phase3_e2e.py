@@ -28,8 +28,8 @@ def prepare_app(monkeypatch, setup_env):
     # chat_update をモック
     calls = []
 
-    def fake_update(channel: str, ts: str, blocks: list):
-        calls.append({"channel": channel, "ts": ts, "blocks": blocks})
+    def fake_update(channel: str, ts: str, blocks: list, **kwargs):
+        calls.append({"channel": channel, "ts": ts, "blocks": blocks, **kwargs})
 
     monkeypatch.setattr(mod.slack_app.client, "chat_update", fake_update)
     return calls
