@@ -99,7 +99,12 @@ def handle_approve(ack, body, client, logger):
     updated_blocks.append(
         {"type": "context", "elements": [{"type": "mrkdwn", "text": notion_status}]}
     )
-    client.chat_update(channel=channel_id, ts=message_ts, blocks=updated_blocks)
+    client.chat_update(
+        channel=channel_id,
+        ts=message_ts,
+        blocks=updated_blocks,
+        text=f"注文{order_id}の承認結果",
+    )
 
 
 @slack_app.action("reject")
@@ -126,4 +131,9 @@ def handle_reject(ack, body, client, logger):
             )
         else:
             updated_blocks.append(block)
-    client.chat_update(channel=channel_id, ts=message_ts, blocks=updated_blocks)
+    client.chat_update(
+        channel=channel_id,
+        ts=message_ts,
+        blocks=updated_blocks,
+        text=f"注文の差し戻し: <@{user_id}> ({ts})",
+    )

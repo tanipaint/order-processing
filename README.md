@@ -110,6 +110,14 @@ for raw in raw_emails:
 
 インタラクティブコンポーネントのRequest URLが未設定の場合、ボタン押下時に「インタラクティブな応答を処理するように設定されていません」というエラーが発生します。
 
+## フェーズ８：サンプルデータ一括登録スクリプト
+データベースにサンプルの顧客・注文データを登録するには、以下を実行します。
+
+```bash
+python3 -m src.phase4.seed_customers  # customers テーブル登録
+python3 -m src.phase4.seed_orders     # orders テーブル登録
+```
+
 ## タスク管理
 詳細な開発タスクは`development_phases_and_tickets.md`を参照し、
 GitHub Issue等に登録してください。

@@ -45,3 +45,6 @@ docker-compose.override.yml
 
 # MCP temporary files
 *.mcp
+
+# Document
+doc/

@@ -1,4 +1,5 @@
 """Phase4: 注文登録＆在庫更新サービス"""
+import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -11,6 +12,7 @@ class OrderService:
     def __init__(self, notion: NotionClient, email_client: Optional[Any] = None):
         self.notion = notion
         self.email_client = email_client
+        self.logger = logging.getLogger(__name__)
 
     def check_stock(self, product_id: str, quantity: int) -> bool:
         """在庫が足りるかチェック"""
@@ -37,37 +39,51 @@ class OrderService:
         # 顧客が存在しない場合は自動登録
         get_cust = getattr(self.notion, "get_customer", None)
         if callable(get_cust):
-            cust_page = self.notion.get_customer(order["customer_name"])
+            try:
+                cust_page = self.notion.get_customer(order["customer_name"])
+            except Exception:
+                cust_page = None
             if not cust_page:
-                # 新規顧客登録
+                # 新規顧客登録: 失敗しても続行
                 create_cust = getattr(self.notion, "create_customer", None)
-                if not callable(create_cust):
-                    raise ValueError(
-                        f"Customer {order['customer_name']} not found and cannot be created"
-                    )
-                cust_page = self.notion.create_customer(
-                    {
-                        "customer_name": order["customer_name"],
-                        # メールアドレス等追加情報があればdataに含めて使用
-                        "first_order_date": datetime.utcnow().date().isoformat(),
-                        "is_existing": False,
-                    }
-                )
-            customer_page_id = cust_page.get("id")
+                if callable(create_cust):
+                    try:
+                        cust_page = self.notion.create_customer(
+                            {
+                                # 新規顧客IDとしてタイムスタンプ付きの一意文字列を設定
+                                "id": f"CUST{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                                "customer_name": order["customer_name"],
+                                # メールアドレス等追加情報があればdataに含めて使用
+                                "first_order_date": datetime.utcnow()
+                                .date()
+                                .isoformat(),
+                                "is_existing": False,
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"failed to create customer: {e}")
+            if cust_page:
+                customer_page_id = cust_page.get("id")
+            else:
+                customer_page_id = order["customer_name"]
         else:
             customer_page_id = order["customer_name"]
-        created = self.notion.create_order(
-            {
-                "order_id": order["order_id"],
-                "customer_page_id": customer_page_id,
-                "product_page_id": product_page_id,
-                "quantity": order["quantity"],
-                "delivery_date": order["delivery_date"],
-                "status": order.get("status", ""),
-                "approved_by": order.get("approved_by", ""),
-                "created_at": datetime.utcnow().isoformat(),
-            }
-        )
+        try:
+            created = self.notion.create_order(
+                {
+                    "order_id": order["order_id"],
+                    "customer_page_id": customer_page_id,
+                    "product_page_id": product_page_id,
+                    "quantity": order["quantity"],
+                    "delivery_date": order["delivery_date"],
+                    "status": order.get("status", ""),
+                    "approved_by": order.get("approved_by", ""),
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            )
+        except Exception as e:
+            self.logger.warning(f"failed to create order: {e}", exc_info=True)
+            created = None
         # 2. 在庫を更新
         old_stock = self.notion.get_product_stock(order["product_id"])
         new_stock = old_stock - order["quantity"]

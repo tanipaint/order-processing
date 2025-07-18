@@ -1,4 +1,5 @@
 """Phase4: Notion APIクライアントラッパー"""
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -55,10 +56,10 @@ class NotionClient:
         return items[0] if items else None
 
     def get_customer(self, customer_name: str) -> Optional[Dict[str, Any]]:
-        """指定顧客名の顧客ページを取得"""
+        """指定顧客名（rich_textプロパティ customer_name）にマッチする顧客ページを取得"""
         result = self.query_database(
             self.database_id_customers,
-            {"property": "customer_name", "title": {"equals": customer_name}},
+            {"property": "customer_name", "rich_text": {"equals": customer_name}},
         )
         items = result.get("results", [])
         return items[0] if items else None
@@ -85,12 +86,11 @@ class NotionClient:
         """ordersデータベースに注文ページを作成"""
         # orders データベースの relation/プロパティ構成に合わせてマッピング
         # 顧客・商品ページIDが未指定の場合は customer_name・product_id を relation ID として使用
-        cust_page_id = data.get("customer_page_id", data.get("customer_name"))
-        prod_page_id = data.get("product_page_id", data.get("product_id"))
+        # RelationフィールドはIDが有効な場合のみ設定
+        cust_page_id = data.get("customer_page_id")
+        prod_page_id = data.get("product_page_id")
         props: Dict[str, Any] = {
             "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
-            "customers": {"relation": [{"id": cust_page_id}]},
-            "products": {"relation": [{"id": prod_page_id}]},
             "quantity": {"number": data["quantity"]},
             "delivery_date": {"date": {"start": data["delivery_date"]}},
             "status": {"select": {"name": data.get("status", "")}},
@@ -101,6 +101,10 @@ class NotionClient:
                 "date": {"start": data.get("created_at", datetime.utcnow().isoformat())}
             },
         }
+        if cust_page_id:
+            props["customers"] = {"relation": [{"id": cust_page_id}]}
+        if prod_page_id:
+            props["products"] = {"relation": [{"id": prod_page_id}]}
         resp = self.client.post(
             "/pages",
             json={
@@ -108,7 +112,14 @@ class NotionClient:
                 "properties": props,
             },
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            text = getattr(e.response, "text", "")
+            logging.getLogger(__name__).error(
+                f"create_order failed: {e.response.status_code} {text}", exc_info=True
+            )
+            raise
         return resp.json()
 
     def create_product(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -135,18 +146,25 @@ class NotionClient:
 
     def create_customer(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """customersデータベースに顧客ページを作成（存在しない場合の新規登録用）"""
-        # title: customer_name, email, first_order_date, is_existing
+        # titleプロパティ id、rich_textプロパティ customer_name, email, first_order_date, is_existing, created_at
+        # properties を必須項目と任意項目に分けて定義
         props: Dict[str, Any] = {
-            "customer_name": {"title": [{"text": {"content": data["customer_name"]}}]},
-            "email": {"email": data.get("email", "")},
-            "first_order_date": {
-                "date": {
-                    "start": data.get(
-                        "first_order_date", datetime.utcnow().date().isoformat()
-                    )
-                }
+            # 顧客ID（Title）は data['id'] を優先し、未指定時は customer_name を使用
+            "id": {
+                "title": [{"text": {"content": data.get("id", data["customer_name"])}}]
             },
-            "is_existing": {"checkbox": data.get("is_existing", False)},
+            "customer_name": {
+                "rich_text": [{"text": {"content": data["customer_name"]}}]
+            },
+        }
+        # 任意プロパティ
+        if data.get("email"):
+            props["email"] = {"email": data["email"]}
+        if data.get("first_order_date"):
+            props["first_order_date"] = {"date": {"start": data["first_order_date"]}}
+        props["is_existing"] = {"checkbox": data.get("is_existing", False)}
+        props["created_at"] = {
+            "date": {"start": data.get("created_at", datetime.utcnow().isoformat())}
         }
         resp = self.client.post(
             "/pages",
@@ -155,5 +173,13 @@ class NotionClient:
                 "properties": props,
             },
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            text = getattr(e.response, "text", "")
+            logging.getLogger(__name__).error(
+                f"create_customer failed: {e.response.status_code} {text}",
+                exc_info=True,
+            )
+            raise
         return resp.json()
