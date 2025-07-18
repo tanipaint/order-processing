@@ -71,9 +71,9 @@ sequenceDiagram
 
 ### 注文管理（orders）
 
-| order_id | customers | products | quantity | delivery_date | status | approved_by | created_at |
-| -------- | --------- | -------- | -------- | ------------- | ------ | ----------- | ---------- |
-| ORD001   | CUST001   | A001     | 3        | 2025-07-15    | 承認済 | tanaka      | 2025-07-12 |
+| order_id | customers (Relation) | products (Relation) | quantity | delivery_date | status (approved, cancel, unprocessed, completed) | approved_by | created_at |
+| -------- | ------------------- | ------------------- | -------- | ------------- | ------------------------------------------------- | ----------- | ---------- |
+| ORD001   | CUST001              | A001                | 3        | 2025-07-15    | 承認済                                             | tanaka      | 2025-07-12 |
 
 ---
 
