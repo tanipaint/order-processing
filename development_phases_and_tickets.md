@@ -13,7 +13,7 @@
 |     1–3      | CI/CD パイプライン骨格構築        | GitHub Actions や GitLab CI でビルド＆基本テスト自動化   | infra            |  ✔️  |
 |     1–4      | Lint／Formatter／Pre-commit 設定  | Black／isort／flake8 などの設定と動作確認                | infra            |  ✔️  |
 |     1–5      | テスト整備                          | 全テストの不整合解消およびテストケース追加・メンテナンス | backend／qa      | ✔️  |
-|     1–6      | 既存テスト/スタイル整備             | 既存のテスト・flake8/Black エラー解消                     | backend／qa      |      |
+|     1–6      | 既存テスト/スタイル整備             | 既存のテスト・flake8/Black エラー解消                     | backend／qa      | ✔️   |
 
 ## 🚩 フェーズ２：注文抽出（OCR ＋ LLM）PoC
 
@@ -26,7 +26,7 @@
 |     2–3      | LLM 抽出プロンプト設計＆呼び出しラッパー | OpenAI GPT-4o へのプロンプト雛形設計とレスポンスパース処理                 | backend  |  ✔️  |
 |     2–4      | 構造化データ変換コンポーネント           | LLM レスポンス(JSON) → 注文オブジェクト変換ロジック                        | backend  |  ✔️  |
 |     2–5      | 単体テスト＆サンプルデータ作成           | OCR／LLM スタブ＋サンプル注文メッセージでユニットテスト                    | backend  |  ✔️  |
-|     2–6      | LLMベースの注文抽出機能実装               | OpenAI GPT-4o を用いた JSON 形式注文抽出パイプライン実装                  | backend  |      |
+|     2–6      | LLMベースの注文抽出機能実装               | OpenAI GPT-4o を用いた JSON 形式注文抽出パイプライン実装                  | backend  | ✔️   |
 
 ## 🚩 フェーズ３：Slack 承認ワークフロー実装
 
@@ -41,7 +41,7 @@
 |     3–4      | Slack 上の状態管理（承認者記録・ログ取得） | 承認者情報やタイムスタンプを保持し、Slack 上に反映                             | backend        |  ✔️  |
 |     3–5      | E2E テスト（モック Slack API）             | Slack SDK モックによる自動テスト                                               | backend／qa    |  ✔️  |
 |     3–6      | Slack 承認後の注文登録連携                 | 承認ボタン押下イベントでNotionへの注文登録・在庫更新処理を呼び出し実装           | backend        |  ✔️  |
-|     3–7      | Slackモーダルによる注文内容確認UI実装      | 抽出結果の修正・承認を可能にする Block Kit Modal フローを実装               | backend        |      |
+|     3–7      | Slackモーダルによる注文内容確認UI実装      | 抽出結果の修正・承認を可能にする Block Kit Modal フローを実装               | backend        | ✔️   |
 
 ## 🚩 フェーズ４：Notion 連携＆在庫更新・DB 登録
 
