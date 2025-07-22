@@ -25,6 +25,8 @@ def main():
     embedder = OpenAIEmbedder()
     vs = VectorStore(embedder)
     vs.build(docs)
+    # Drop embedder before pickling (stub embedder may not be picklable)
+    vs.embedder = None
 
     out_path = os.getenv("RAG_INDEX_PATH", "rag_index.pkl")
     with open(out_path, "wb") as f:
