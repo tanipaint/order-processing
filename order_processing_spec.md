@@ -32,7 +32,7 @@ sequenceDiagram
     participant Staff
 
     Customer->>AI: 注文送信（FAX/メール）
-    AI->>AI: 内容抽出（OCR/NLP）
+    AI->>AI: 内容抽出（OCR/NLP → LLMによるJSON出力）
     AI->>Notion: 在庫・顧客データ参照
     AI->>Slack: 注文データ＋在庫を通知
     Staff->>Slack: 承認ボタン押下
@@ -99,6 +99,7 @@ sequenceDiagram
 ### 承認後の動作
 
 - ボタン押下イベントを受信し、注文 ID を特定
+- Slack Modalを使った抽出結果の確認・修正UIを表示し、最終承認前にユーザーが内容を修正可能とする
 - Notion の customers データベースを参照し、顧客が存在しない場合は新規登録
 - Notion の orders データベースに注文を登録（order_id, customer_name, product_id, quantity, delivery_date, status='承認済', approved_by）
 - products データベースの stock を quantity 分減算し更新
@@ -133,6 +134,7 @@ sequenceDiagram
 - `products.md`：商品辞書（類義語・別名含む）
 - Retriever：`faiss` ベースのベクトル検索
 - Generator：GPT-4o
+- バッチ処理で辞書ドキュメントを埋め込み化し Faiss に投入、メール抽出後に類似度検索で表記揺らぎを補正
 
 ---
 
