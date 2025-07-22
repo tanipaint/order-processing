@@ -1,5 +1,9 @@
 import json
+import os
 
+# Bolt App 初期化時の env var チェックをスキップするためダミー設定
+os.environ.setdefault("SLACK_BOT_TOKEN", "xoxb-test")  # noqa: E501
+os.environ.setdefault("SLACK_SIGNING_SECRET", "test-secret")  # noqa: E501
 from src.phase3.slack_app import handle_approve
 
 
