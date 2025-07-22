@@ -12,6 +12,8 @@
 |     1–2      | Docker イメージ／ローカル環境整備 | Dockerfile／docker-compose／依存ライブラリのインストール | infra            |  ✔️  |
 |     1–3      | CI/CD パイプライン骨格構築        | GitHub Actions や GitLab CI でビルド＆基本テスト自動化   | infra            |  ✔️  |
 |     1–4      | Lint／Formatter／Pre-commit 設定  | Black／isort／flake8 などの設定と動作確認                | infra            |  ✔️  |
+|     1–5      | テスト整備                          | 全テストの不整合解消およびテストケース追加・メンテナンス | backend／qa      | ✔️  |
+|     1–6      | 既存テスト/スタイル整備             | 既存のテスト・flake8/Black エラー解消                     | backend／qa      |      |
 
 ## 🚩 フェーズ２：注文抽出（OCR ＋ LLM）PoC
 
