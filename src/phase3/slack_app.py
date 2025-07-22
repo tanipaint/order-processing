@@ -19,6 +19,7 @@ from slack_bolt.adapter.starlette import SlackRequestHandler
 
 from src.phase4.notion_client import NotionClient
 from src.phase4.order_service import OrderService
+from src.phase5.email_client import EmailClient
 
 # .envファイルから環境変数をロード
 load_dotenv()
@@ -117,6 +118,31 @@ def handle_reject(ack, body, client, logger):
     # 差し戻しイベントのタイムスタンプ
     ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     logger.info(f"reject button clicked by {user_id} at {ts}")
+    # 差し戻し時の自動返信メール送信（オプション）
+    try:
+        # ボタンvalueに埋め込んだ注文データを取得
+        order_data = {}
+        actions = body.get("actions") or []
+        if actions:
+            order_data = json.loads(actions[0].get("value", "{}"))
+        email_client = EmailClient()
+        # 顧客のメールアドレス取得
+        cust_page = NotionClient().get_customer(order_data.get("customer_name", ""))
+        email_addr = (
+            cust_page.get("properties", {}).get("email", {}).get("email")
+            if cust_page
+            else None
+        )
+        if email_addr:
+            subject = "ご注文の差し戻し通知"
+            body_text = (
+                f"{order_data.get('customer_name', '')} 様\n"
+                "お客様のご注文が差し戻されました。\n"
+                "お手数ですが再度ご確認のうえご連絡ください。"
+            )
+            email_client.send_email(email_addr, subject, body_text)
+    except Exception as e:
+        logger.error(f"failed to send rejection email: {e}", exc_info=True)
     # actions ブロックを差し戻しステータス表示に置き換え（差し戻し者と時刻を表示）
     updated_blocks = []
     for block in body["message"]["blocks"]:
