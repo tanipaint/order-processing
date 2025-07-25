@@ -19,6 +19,21 @@ def build_order_notification(
         Slackに投稿するpayload辞書（blocksキーを含む）
     """
     stock_status = "✅ 在庫あり" if in_stock else "❌ 在庫不足"
+    # テキストフォールバック用サマリー
+    summary_text = f"📦 新しい注文: 顧客 {extracted.get('customer_name')}, 商品 {extracted.get('product_id')}, 数量 {extracted.get('quantity')}"
+    # 原文テキストを抽出: dictの場合はbodyのみ使用
+    if isinstance(original_text, dict):
+        body = original_text.get("body", "")
+    elif isinstance(original_text, (bytes, bytearray)):
+        body = ""
+    else:
+        body = original_text or ""
+    # 本文の長さ制限（最大2000文字）
+    max_len = 2000
+    if len(body) > max_len:
+        truncated = body[:max_len] + "...（以下省略）"
+    else:
+        truncated = body
 
     # ボタン押下時のハンドラで使用するため、抽出データをJSONでvalueに埋め込む
     order_payload = {
@@ -35,11 +50,11 @@ def build_order_notification(
             "text": {"type": "mrkdwn", "text": ":package: 新しい注文が届きました"},
         }
     )
-    # 原文
+    # 原文（トランケート済み）
     blocks.append(
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*原文：*```{original_text}```"},
+            "text": {"type": "mrkdwn", "text": f"*原文：*```{truncated}```"},
         }
     )
     # 抽出内容
@@ -76,4 +91,5 @@ def build_order_notification(
             ],
         }
     )
-    return {"blocks": blocks}
+    # 戻り値にtextを含めることでプッシュ通知等での表示をフォールバック
+    return {"text": summary_text, "blocks": blocks}

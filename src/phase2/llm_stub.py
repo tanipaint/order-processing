@@ -52,6 +52,16 @@ def extract_order_fields(text: str) -> dict:
     )
     text_out = resp.choices[0].message.content.strip()
     try:
-        return json.loads(text_out)
+        # JSON以外の文字列を削除するための正規表現
+        json_match = re.search(r"\{.*?\}", text_out, re.DOTALL)
+        if json_match:
+            cleaned_json = json_match.group(0)
+        else:
+            raise ValueError("JSON形式が見つかりませんでした")
+        # JSON部分のみをパースして返却
+        return json.loads(cleaned_json)
     except Exception as e:
-        raise ValueError(f"LLM レスポンスの JSON パース失敗: {e}\n>> {text_out}")
+        # デバッグ用にLLMレスポンス全体を出力
+        print(f"LLM レスポンス全体: {text_out}")
+        print(f"整形後のJSON: {cleaned_json}")
+        raise ValueError(f"LLM レスポンスの JSON パース失敗: {e}\n>> {cleaned_json}")

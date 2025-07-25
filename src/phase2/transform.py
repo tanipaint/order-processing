@@ -17,7 +17,16 @@ class OrderData:
 
 def parse_order(text: str) -> OrderData:
     """テキストを受け取り、OCR→LLM抽出→OrderDataに変換するパイプライン"""
-    ocr_text = ocr_process(text)
+    # text may be str, bytes, or dict with body/pdf keys
+    if isinstance(text, dict) and text.get("pdf") is not None:
+        # Combine body text and PDF OCR text
+        body = text.get("body", "")
+        pdf_bytes = text.get("pdf")
+        ocr_pdf_text = ocr_process(pdf_bytes)
+        ocr_text = body + "\n" + ocr_pdf_text
+    else:
+        # str or bytes fallback
+        ocr_text = ocr_process(text)
     fields = extract_order_fields(ocr_text)
     # 必須フィールドの検証
     required = ["customer_name", "product_id", "quantity", "delivery_date"]

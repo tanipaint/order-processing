@@ -35,6 +35,10 @@ class NotionClient:
             "Content-Type": "application/json",
         }
         self.client = httpx.Client(base_url=base_url, headers=headers)
+        # Logger for warning messages
+        import logging
+
+        self.logger = logging.getLogger(__name__)
 
     def query_database(
         self, database_id: str, filter: Optional[Dict[str, Any]] = None
@@ -48,12 +52,31 @@ class NotionClient:
 
     def get_product(self, product_id: str) -> Optional[Dict[str, Any]]:
         """指定IDの商品ページを取得"""
-        result = self.query_database(
-            self.database_id_products,
-            {"property": "id", "rich_text": {"equals": product_id}},
-        )
-        items = result.get("results", [])
-        return items[0] if items else None
+        # First, try lookup by product ID (title property 'id')
+        from httpx import HTTPStatusError
+
+        try:
+            result = self.query_database(
+                self.database_id_products,
+                {"property": "id", "rich_text": {"equals": product_id}},
+            )
+            items = result.get("results", [])
+            if items:
+                return items[0]
+        except HTTPStatusError as e:
+            self.logger.warning(f"get_product by id filter failed: {e}")
+        # Fallback: lookup by product name (rich_text property 'name')
+        try:
+            result_name = self.query_database(
+                self.database_id_products,
+                {"property": "name", "rich_text": {"equals": product_id}},
+            )
+            items_name = result_name.get("results", [])
+            if items_name:
+                return items_name[0]
+        except HTTPStatusError as e:
+            self.logger.warning(f"get_product by name filter failed: {e}")
+        return None
 
     def get_customer(self, customer_name: str) -> Optional[Dict[str, Any]]:
         """指定顧客名（rich_textプロパティ customer_name）にマッチする顧客ページを取得"""
