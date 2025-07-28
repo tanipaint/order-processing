@@ -28,6 +28,38 @@ def parse_order(text: str) -> OrderData:
         # str or bytes fallback
         ocr_text = ocr_process(text)
     fields = extract_order_fields(ocr_text)
+    # 複数商品対応: items リストがある場合は複数の OrderData を返却
+    if "items" in fields:
+        # 必須フィールドチェック (customer_name, delivery_date)
+        for key in ("customer_name", "delivery_date"):
+            if key not in fields:
+                raise ValueError(
+                    f"Missing required field '{key}' for multi-item order: {fields!r}"
+                )
+        raw_date = fields.get("delivery_date") or ""
+        # 日付補完
+        if re.fullmatch(r"\d{4}", raw_date):
+            raw_date = f"{raw_date}-01-01"
+        elif re.fullmatch(r"\d{4}-\d{2}", raw_date):
+            raw_date = f"{raw_date}-01"
+        try:
+            d = date.fromisoformat(raw_date)
+        except ValueError:
+            raise ValueError(
+                f"Invalid delivery_date format: {raw_date!r}, expected YYYY-MM-DD"
+            )
+        orders = []
+        for item in fields["items"]:
+            orders.append(
+                OrderData(
+                    customer_name=fields["customer_name"],
+                    product_id=item.get("product_id"),
+                    quantity=item.get("quantity"),
+                    delivery_date=d,
+                )
+            )
+        return orders  # type: ignore
+    # 単一商品の場合
     # 必須フィールドの検証
     required = ["customer_name", "product_id", "quantity", "delivery_date"]
     missing = [k for k in required if k not in fields]
@@ -40,7 +72,6 @@ def parse_order(text: str) -> OrderData:
     if not raw_date:
         raise ValueError(f"Missing delivery_date in extracted fields: {fields!r}")
     # 簡易対応: 年のみ or 年-月のみの場合は先頭日を補完
-    # YYYY -> YYYY-01-01, YYYY-MM -> YYYY-MM-01
     if re.fullmatch(r"\d{4}", raw_date):
         raw_date = f"{raw_date}-01-01"
     elif re.fullmatch(r"\d{4}-\d{2}", raw_date):
