@@ -15,18 +15,30 @@ def extract_order_fields(text: str) -> dict:
     if not os.getenv("OPENAI_API_KEY"):
         # 戻り値フォーマット互換のため旧スタブ実装
         data: dict = {}
+        # 抽出: 顧客名, 配送希望日
         m = re.search(r"顧客[:：]\s*(.+)", text)
         if m:
             data["customer_name"] = m.group(1).strip()
+        m = re.search(r"配送希望日[:：]\s*([\d\-]+)", text)
+        if m:
+            data["delivery_date"] = m.group(1).strip()
+        # 複数商品の場合は items リストを返却
+        products = re.findall(r"商品[:：]\s*([A-Za-z0-9]+)", text)
+        quantities = re.findall(r"数量[:：]\s*(\d+)", text)
+        if len(products) > 1 and len(quantities) == len(products):
+            items = []
+            for pid, qty in zip(products, quantities):
+                items.append({"product_id": pid.strip(), "quantity": int(qty)})
+            data["items"] = items
+            return data
+        # 単一商品の場合: 既存フォーマット
+        # product_id, quantity を一つずつ抽出
         m = re.search(r"商品[:：]\s*([A-Za-z0-9]+)", text)
         if m:
             data["product_id"] = m.group(1).strip()
         m = re.search(r"数量[:：]\s*(\d+)", text)
         if m:
             data["quantity"] = int(m.group(1))
-        m = re.search(r"配送希望日[:：]\s*([\d\-]+)", text)
-        if m:
-            data["delivery_date"] = m.group(1).strip()
         return data
     openai.api_key = os.getenv("OPENAI_API_KEY")
     prompt = f"""
@@ -52,6 +64,16 @@ def extract_order_fields(text: str) -> dict:
     )
     text_out = resp.choices[0].message.content.strip()
     try:
-        return json.loads(text_out)
+        # JSON以外の文字列を削除するための正規表現
+        json_match = re.search(r"\{.*?\}", text_out, re.DOTALL)
+        if json_match:
+            cleaned_json = json_match.group(0)
+        else:
+            raise ValueError("JSON形式が見つかりませんでした")
+        # JSON部分のみをパースして返却
+        return json.loads(cleaned_json)
     except Exception as e:
-        raise ValueError(f"LLM レスポンスの JSON パース失敗: {e}\n>> {text_out}")
+        # デバッグ用にLLMレスポンス全体を出力
+        print(f"LLM レスポンス全体: {text_out}")
+        print(f"整形後のJSON: {cleaned_json}")
+        raise ValueError(f"LLM レスポンスの JSON パース失敗: {e}\n>> {cleaned_json}")

@@ -84,18 +84,33 @@ class EmailListener:
 def parse_email_body(raw_email: bytes) -> str:
     """MIMEマルチパートから本文(text/plain)を抽出し、テキストを返す"""
     msg = email.message_from_bytes(raw_email)
-    texts = []
+    body_texts = []
+    pdf_payload = None
+    # Walk parts to collect body text and PDF attachment
     if msg.is_multipart():
         for part in msg.walk():
             ctype = part.get_content_type()
             disp = part.get("Content-Disposition", "")
+            # PDF attachment
+            if ctype == "application/pdf" or (
+                "attachment" in disp and ctype == "application/octet-stream"
+            ):
+                pdf_payload = part.get_payload(decode=True)
+                continue
+            # text/plain body parts
             if ctype == "text/plain" and "attachment" not in disp:
                 charset = part.get_content_charset() or "utf-8"
                 payload = part.get_payload(decode=True) or b""
-                texts.append(payload.decode(charset, errors="replace"))
+                body_texts.append(payload.decode(charset, errors="replace"))
     else:
+        # Single part, treat as plain text
         if msg.get_content_type() == "text/plain":
             charset = msg.get_content_charset() or "utf-8"
             payload = msg.get_payload(decode=True) or b""
-            texts.append(payload.decode(charset, errors="replace"))
-    return "\n".join(texts)
+            body_texts.append(payload.decode(charset, errors="replace"))
+    body = "\n".join(body_texts)
+    # If PDF attachment found, return both body text and PDF bytes
+    if pdf_payload:
+        return {"body": body, "pdf": pdf_payload}
+    # Otherwise return body text
+    return body
