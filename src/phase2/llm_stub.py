@@ -17,7 +17,7 @@ def extract_order_fields(text: str) -> dict:
     for idx, line in enumerate(lines):
         if "商品" in line and "数量" in line:
             items = []
-            for row in lines[idx + 1 :]:
+            for row in lines[idx + 1 :]:  # noqa: E203
                 row_s = row.strip()
                 if not row_s or row_s.startswith("合計"):
                     break
@@ -50,7 +50,7 @@ def extract_order_fields(text: str) -> dict:
         for idx, line in enumerate(lines):
             if "商品名" in line and "数量" in line:
                 items = []
-                for row in lines[idx + 1 :]:
+                for row in lines[idx + 1 :]:  # noqa: E203
                     if row.strip().startswith("合計"):
                         break
                     cols = row.strip().split()

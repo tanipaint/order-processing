@@ -1,6 +1,6 @@
 [flake8]
 # Ignore E203 (whitespace before ':') to be compatible with Black formatting
-# Ignore common Black conflicts and allow longer lines
-extend-ignore = E203, E501
+# Only ignore long lines (E501); re-enable E203 whitespace checks
+extend-ignore = E501
 # Optionally, match Black's default line length
 max-line-length = 88
