@@ -41,6 +41,15 @@ def extract_order_fields(text: str) -> dict:
                     data["delivery_date"] = m.group(1).strip()
                 data["items"] = items
                 return data
+    # 日本語ヘッダーで抽出できない場合の汎用テーブル抽出 (英語PDF対応)
+    # 各行を「コード 数量」の2トークンで解析
+    generic_items = []
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) == 2 and parts[0].isalnum() and parts[1].isdigit():
+            generic_items.append({"product_id": parts[0], "quantity": int(parts[1])})
+    if generic_items:
+        return {"items": generic_items}
     # テーブル抽出対象でない場合、環境変数で切り替え
     if not os.getenv("OPENAI_API_KEY"):
         # 戻り値フォーマット互換のため旧スタブ実装

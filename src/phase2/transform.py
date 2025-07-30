@@ -28,8 +28,48 @@ def parse_order(text: str) -> OrderData:
         # str or bytes fallback
         ocr_text = ocr_process(text)
     fields = extract_order_fields(ocr_text)
-    # 複数商品対応: items リストがある場合は複数の OrderData を返却
-    if "items" in fields:
+    # フォールバック: items 空かつ単一商品も抽出されない場合は regex で抽出
+    if not fields.get("items") and not fields.get("product_id"):
+        # 顧客名抽出
+        m_c = re.search(r"顧客[:：]\s*(.+)", ocr_text)
+        if m_c:
+            fields["customer_name"] = m_c.group(1).strip()
+        # 配送希望日抽出
+        m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", ocr_text)
+        if m_d:
+            fields["delivery_date"] = m_d.group(1).strip()
+        # 商品・数量抽出
+        prods = re.findall(r"商品[:：]\s*([A-Za-z0-9]+)", ocr_text)
+        qtys = re.findall(r"数量[:：]\s*(\d+)", ocr_text)
+        if len(prods) > 1 and len(prods) == len(qtys):
+            fields["items"] = [
+                {"product_id": p, "quantity": int(q)} for p, q in zip(prods, qtys)
+            ]
+        elif prods and qtys:
+            fields["product_id"] = prods[0]
+            fields["quantity"] = int(qtys[0])
+    # LLM抽出で空のitemsかつproduct_id未設定の場合は正規表現ベースのフォールバック
+    if not fields.get("items") and not fields.get("product_id"):
+        # 顧客名
+        m_c = re.search(r"顧客[:：]\s*(.+)", ocr_text)
+        if m_c:
+            fields["customer_name"] = m_c.group(1).strip()
+        # 配送希望日
+        m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", ocr_text)
+        if m_d:
+            fields["delivery_date"] = m_d.group(1).strip()
+        # 商品と数量
+        prods = re.findall(r"商品[:：]\s*([A-Za-z0-9]+)", ocr_text)
+        qtys = re.findall(r"数量[:：]\s*(\d+)", ocr_text)
+        if len(prods) > 1 and len(prods) == len(qtys):
+            fields["items"] = [
+                {"product_id": p, "quantity": int(q)} for p, q in zip(prods, qtys)
+            ]
+        elif prods and qtys:
+            fields["product_id"] = prods[0]
+            fields["quantity"] = int(qtys[0])
+    # 複数商品対応: items リストが存在し、かつ要素がある場合は複数の OrderData を返却
+    if "items" in fields and isinstance(fields["items"], list) and fields["items"]:
         # 必須フィールドチェック (customer_name, delivery_date)
         for key in ("customer_name", "delivery_date"):
             if key not in fields:
