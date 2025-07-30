@@ -2,6 +2,9 @@
 import re
 from dataclasses import dataclass
 from datetime import date
+from io import BytesIO
+
+import pdfplumber
 
 from src.phase2.llm_stub import extract_order_fields
 from src.phase2.ocr_stub import ocr_process
@@ -18,10 +21,47 @@ class OrderData:
 def parse_order(text: str) -> OrderData:
     """テキストを受け取り、OCR→LLM抽出→OrderDataに変換するパイプライン"""
     # text may be str, bytes, or dict with body/pdf keys
+    ocr_text = ""
     if isinstance(text, dict) and text.get("pdf") is not None:
-        # Combine body text and PDF OCR text
         body = text.get("body", "")
         pdf_bytes = text.get("pdf")
+        # 1) Try table extraction via pdfplumber
+        items = []
+        try:
+            with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
+                for page in pdf.pages:
+                    tables = page.extract_tables()
+                    for table in tables or []:
+                        # assume first row is header
+                        for row in table[1:]:
+                            if not row or len(row) < 2:
+                                continue
+                            pid = (row[0] or "").strip()
+                            q = (row[1] or "").strip()
+                            if pid and q.isdigit():
+                                items.append((pid, int(q)))
+            if items:
+                # Build multi-item order directly
+                # Extract customer_name and delivery_date from body
+                fields = extract_order_fields(body)
+                # Build OrderData list
+                orders = []
+                # parse delivery_date
+                raw_date = fields.get("delivery_date", "")
+                d = date.fromisoformat(raw_date) if raw_date else None
+                for pid, qty in items:
+                    orders.append(
+                        OrderData(
+                            customer_name=fields.get("customer_name", ""),
+                            product_id=pid,
+                            quantity=qty,
+                            delivery_date=d,
+                        )
+                    )
+                return orders  # type: ignore
+        except Exception:
+            pass
+        # Fallback: combine body and OCR text
         ocr_pdf_text = ocr_process(pdf_bytes)
         ocr_text = body + "\n" + ocr_pdf_text
     else:
