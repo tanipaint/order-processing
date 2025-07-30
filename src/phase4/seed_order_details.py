@@ -1,4 +1,4 @@
-"""注文データを Notion の orders テーブルへ登録するスクリプト"""
+"""注文明細データを Notion の order_details テーブルへ登録するスクリプト"""
 import csv
 from datetime import datetime
 
@@ -18,6 +18,9 @@ def parse_jp_date(s: str) -> str:
     for fmt in ("%Y年%m月%d日", "%Y年%m月%d日 %H:%M"):
         try:
             dt = datetime.strptime(s, fmt)
+            # preserve time if format includes time
+            if "H" in fmt:
+                return dt.isoformat()
             return dt.date().isoformat()
         except Exception:
             continue
@@ -27,27 +30,26 @@ def parse_jp_date(s: str) -> str:
 def main():
     load_dotenv()
     client = NotionClient()
-    path = "doc/orders.csv"
+    path = "doc/order_details.csv"
     with open(path, encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            # customers column contains '<id> (<url>)'
-            cust_id = row.get("customers", "").split()[0]
+            # orders and products columns contain '<id> (<url>)'
+            order_page_id = row.get("orders", "").split()[0]
+            product_page_id = row.get("products", "").split()[0]
             data = {
-                "order_id": row.get("order_id", ""),
-                "customer_page_id": cust_id,
-                # header-only seed: total_price must be present to use header branch
-                "total_price": float(row.get("total_price", 0)),
-                "delivery_date": parse_jp_date(row.get("delivery_date", "")),
-                "status": row.get("status", ""),
-                "approved_by": row.get("approved_by", ""),
+                "id": row.get("id", ""),
+                "order_page_id": order_page_id,
+                "product_page_id": product_page_id,
+                "quantity": int(row.get("quantity", 0)),
+                "sub_total": float(row.get("sub_total", 0)),
                 "created_at": parse_jp_date(row.get("created_at", "")),
             }
             try:
                 res = client.create_order(data)
-                print(f"Created order page id: {res.get('id')} for {data['order_id']}")
+                print(f"Created order_detail page id: {res.get('id')} for {data['id']}")
             except Exception as e:
-                print(f"Failed to create order {data['order_id']}: {e}")
+                print(f"Failed to create order_detail {data['id']}: {e}")
 
 
 if __name__ == "__main__":

@@ -55,14 +55,35 @@ def main():
         for raw in raws:
             try:
                 text = parse_email_body(raw)
-                # 注文抽出
+                # 注文抽出 (単一または複数)
                 order = parse_order(text)
-                # 在庫チェック
-                in_stock = order_service.check_stock(order.product_id, order.quantity)
+                # extracted データ構造を生成
+                if isinstance(order, list):
+                    # マルチ商品注文
+                    items = [
+                        {"product_id": o.product_id, "quantity": o.quantity}
+                        for o in order
+                    ]
+                    extracted = {
+                        "customer_name": order[0].customer_name,
+                        "delivery_date": str(order[0].delivery_date),
+                        "items": items,
+                        # メールアドレスが本文にあれば追加
+                    }
+                    # 在庫チェック: 全アイテムが在庫あり
+                    in_stock = all(
+                        order_service.check_stock(o.product_id, o.quantity)
+                        for o in order
+                    )
+                else:
+                    extracted = vars(order)
+                    in_stock = order_service.check_stock(
+                        order.product_id, order.quantity
+                    )
                 # Slack通知メッセージ生成
                 payload = build_order_notification(
                     original_text=text,
-                    extracted=vars(order),
+                    extracted=extracted,
                     in_stock=in_stock,
                 )
                 logger.info(f"Posting notification to Slack channel {SLACK_CHANNEL}")

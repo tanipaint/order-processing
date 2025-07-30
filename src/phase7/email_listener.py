@@ -44,15 +44,19 @@ class EmailListener:
     def fetch_unseen_emails(self):
         """未読メールを取得する。既読フラグは外部で制御する"""
         if self.mail is None:
+            # 初回接続
             self.connect()
         else:
-            # 再ポーリング時もINBOXを再選択 (Gmail等で必要な場合あり)
-            try:
-                self.mail.select("INBOX")
-                logger.debug("Re-selected INBOX mailbox")
-            except AttributeError:
-                # テストダブルなどで select が未実装の場合はスキップ
-                pass
+            # 再ポーリング時もINBOXを再選択。ただし接続切断時は再接続
+            # Dummy mail objects for testing may not have select()
+            if hasattr(self.mail, "select"):
+                try:
+                    self.mail.select("INBOX")
+                    logger.debug("Re-selected INBOX mailbox")
+                except Exception as e:
+                    logger.warning(f"Failed to re-select INBOX (will reconnect): {e}")
+                    # 接続が切れている可能性があるため再接続
+                    self.connect()
         logger.debug("Searching for UNSEEN emails")
         status, data = self.mail.search(None, "UNSEEN")
         logger.debug(f"Search result: status={status}, data={data}")

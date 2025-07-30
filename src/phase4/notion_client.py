@@ -19,6 +19,8 @@ class NotionClient:
         self.database_id_products = os.getenv("NOTION_DATABASE_ID_PRODUCTS")
         self.database_id_customers = os.getenv("NOTION_DATABASE_ID_CUSTOMERS")
         self.database_id_orders = os.getenv("NOTION_DATABASE_ID_ORDERS")
+        # 注文明細用データベースID
+        self.database_id_order_details = os.getenv("NOTION_DATABASE_ID_ORDER_DETAILS")
         # 必須DB IDの検証
         if not self.database_id_products:
             raise ValueError("Missing NOTION_DATABASE_ID_PRODUCTS environment variable")
@@ -28,6 +30,8 @@ class NotionClient:
             )
         if not self.database_id_orders:
             raise ValueError("Missing NOTION_DATABASE_ID_ORDERS environment variable")
+        # 注文明細用データベースIDはオプション（サブオーダー登録時に使用）
+        # self.database_id_order_details may be None if detail creation is not needed
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -106,41 +110,94 @@ class NotionClient:
         return resp.json()
 
     def create_order(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """ordersデータベースに注文ページを作成"""
-        # orders データベースの relation/プロパティ構成に合わせてマッピング
-        # 顧客・商品ページIDが未指定の場合は customer_name・product_id を relation ID として使用
-        # RelationフィールドはIDが有効な場合のみ設定
-        cust_page_id = data.get("customer_page_id")
-        prod_page_id = data.get("product_page_id")
-        props: Dict[str, Any] = {
-            "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
-            "quantity": {"number": data["quantity"]},
-            "delivery_date": {"date": {"start": data["delivery_date"]}},
-            "status": {"select": {"name": data.get("status", "")}},
-            "approved_by": {
-                "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
-            },
-            "created_at": {
-                "date": {"start": data.get("created_at", datetime.utcnow().isoformat())}
-            },
-        }
-        if cust_page_id:
-            props["customers"] = {"relation": [{"id": cust_page_id}]}
-        if prod_page_id:
-            props["products"] = {"relation": [{"id": prod_page_id}]}
-        resp = self.client.post(
-            "/pages",
-            json={
+        """
+        注文ヘッダ or 注文明細 or 単一商品注文をデータベースに作成
+        data により orders または order_details に振り分け
+        """
+        # デバッグ: 呼び出しデータをログ出力
+        logging.getLogger(__name__).debug("create_order request data: %s", data)
+        # 注文明細 (order_details) 登録
+        if data.get("sub_total") is not None:
+            # 注文明細 (order_details) 登録
+            props: Dict[str, Any] = {
+                "id": {
+                    "title": [
+                        {"text": {"content": data.get("id", data.get("order_id", ""))}}
+                    ]
+                },
+                "quantity": {"number": data["quantity"]},
+                "sub_total": {"number": data["sub_total"]},
+            }
+            if data.get("order_page_id"):
+                props["orders"] = {"relation": [{"id": data["order_page_id"]}]}
+            if data.get("product_page_id"):
+                props["products"] = {"relation": [{"id": data["product_page_id"]}]}
+            payload = {
+                "parent": {"database_id": self.database_id_order_details},
+                "properties": props,
+            }
+            logging.getLogger(__name__).debug(
+                "Notion create_order(detail) payload: %s", payload
+            )
+            resp = self.client.post("/pages", json=payload)
+        # 注文ヘッダ (orders) 登録
+        elif data.get("total_price") is not None:
+            # 注文ヘッダ (orders) 登録
+            props: Dict[str, Any] = {
+                "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
+                "total_price": {"number": data["total_price"]},
+                "delivery_date": {"date": {"start": data["delivery_date"]}},
+                "status": {"select": {"name": data.get("status", "")}},
+                "approved_by": {
+                    "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
+                },
+            }
+            if data.get("customer_page_id"):
+                props["customers"] = {"relation": [{"id": data["customer_page_id"]}]}
+            payload = {
                 "parent": {"database_id": self.database_id_orders},
                 "properties": props,
-            },
-        )
+            }
+            logging.getLogger(__name__).debug(
+                "Notion create_order(header) payload: %s", payload
+            )
+            resp = self.client.post("/pages", json=payload)
+        # 従来の単一商品注文
+        else:
+            cust_page_id = data.get("customer_page_id")
+            prod_page_id = data.get("product_page_id")
+            props: Dict[str, Any] = {
+                "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
+                "quantity": {"number": data["quantity"]},
+                "delivery_date": {"date": {"start": data["delivery_date"]}},
+                "status": {"select": {"name": data.get("status", "")}},
+                "approved_by": {
+                    "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
+                },
+                "created_at": {
+                    "date": {
+                        "start": data.get("created_at", datetime.utcnow().isoformat())
+                    }
+                },
+            }
+            if cust_page_id:
+                props["customers"] = {"relation": [{"id": cust_page_id}]}
+            if prod_page_id:
+                props["products"] = {"relation": [{"id": prod_page_id}]}
+            resp = self.client.post(
+                "/pages",
+                json={
+                    "parent": {"database_id": self.database_id_orders},
+                    "properties": props,
+                },
+            )
+        # エラーハンドリング：詳細ログ出力
         try:
             resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            text = getattr(e.response, "text", "")
+        except Exception:
+            text = getattr(resp, "text", None)
             logging.getLogger(__name__).error(
-                f"create_order failed: {e.response.status_code} {text}", exc_info=True
+                "Notion create_order failed (status=%s): %s", resp.status_code, text
             )
             raise
         return resp.json()

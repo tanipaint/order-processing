@@ -64,7 +64,7 @@ def handle_approve(ack, body, client, logger):
         else:
             updated_blocks.append(block)
     client.chat_update(channel=channel_id, ts=message_ts, blocks=updated_blocks)
-    # 抽出結果をモーダルでユーザーに確認・修正してもらう
+    # 抽出データを取得
     order_data = {}
     actions = body.get("actions") or []
     if actions:
@@ -72,6 +72,35 @@ def handle_approve(ack, body, client, logger):
             order_data = json.loads(actions[0].get("value", "{}"))
         except Exception:
             order_data = {}
+    # マルチ商品注文はモーダルを省略し直接登録
+    if order_data.get("items"):
+        from src.phase4.notion_client import NotionClient
+        from src.phase4.order_service import OrderService
+        from src.phase5.email_client import EmailClient
+
+        notion = NotionClient()
+        service = OrderService(notion, EmailClient())
+        order_id = f"ORD{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        # 登録処理
+        try:
+            service.process_order(
+                {
+                    "order_id": order_id,
+                    **order_data,
+                    "status": "approved",
+                    "approved_by": body["user"]["id"],
+                }
+            )
+            # メッセージに登録完了を追加
+            client.chat_postMessage(
+                channel=body["channel"]["id"],
+                thread_ts=body["message"]["ts"],
+                text=f":white_check_mark: 注文 {order_id} を登録しました",
+            )
+        except Exception as e:
+            logger.error(f"Order registration failed: {e}")
+        return
+    # 単一商品はモーダルで確認・修正してもらう
     try:
         client.views_open(
             trigger_id=body.get("trigger_id"),

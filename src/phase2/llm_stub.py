@@ -11,10 +11,59 @@ def extract_order_fields(text: str) -> dict:
     LLM 呼び出し版: メール本文テキストから必須フィールドを JSON で抽出します。
     抽出項目: customer_name, product_id, quantity, delivery_date
     """
-    # テスト環境などで API キー未設定の場合は正規表現スタブを利用
+    # PDF請求書の表形式明細を先に解析: 複数商品明細対応
+    data: dict = {}
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        if "商品" in line and "数量" in line:
+            items = []
+            for row in lines[idx + 1 :]:
+                row_s = row.strip()
+                if not row_s or row_s.startswith("合計"):
+                    break
+                cols = row_s.split()
+                if len(cols) < 2:
+                    continue
+                pid, qty_str = cols[0], cols[1]
+                try:
+                    qty = int(qty_str)
+                except ValueError:
+                    continue
+                items.append({"product_id": pid, "quantity": qty})
+            if items:
+                # 顧客名抽出
+                m = re.search(r"顧客[:：]\s*(.+)", text)
+                if m:
+                    data["customer_name"] = m.group(1).strip()
+                # 配送希望日抽出
+                m = re.search(r"配送希望日[:：]\s*([\d\-]+)", text)
+                if m:
+                    data["delivery_date"] = m.group(1).strip()
+                data["items"] = items
+                return data
+    # テーブル抽出対象でない場合、環境変数で切り替え
     if not os.getenv("OPENAI_API_KEY"):
         # 戻り値フォーマット互換のため旧スタブ実装
         data: dict = {}
+        # PDF請求書テーブル形式対応: ヘッダー行「商品名 数量」以降をパース
+        lines = text.splitlines()
+        for idx, line in enumerate(lines):
+            if "商品名" in line and "数量" in line:
+                items = []
+                for row in lines[idx + 1 :]:
+                    if row.strip().startswith("合計"):
+                        break
+                    cols = row.strip().split()
+                    if len(cols) >= 2:
+                        pid = cols[0]
+                        try:
+                            qty = int(cols[1])
+                        except ValueError:
+                            continue
+                        items.append({"product_id": pid, "quantity": qty})
+                if items:
+                    data["items"] = items
+                    return data
         # 抽出: 顧客名, 配送希望日
         m = re.search(r"顧客[:：]\s*(.+)", text)
         if m:
@@ -43,14 +92,24 @@ def extract_order_fields(text: str) -> dict:
     openai.api_key = os.getenv("OPENAI_API_KEY")
     prompt = f"""
 あなたは注文受付システムのアシスタントです。
-以下のメール本文から、必ず JSON で「customer_name, product_id, quantity, delivery_date」の４項目を抽出してください。
+以下のメール本文から、必ず JSON で抽出結果を返してください。
+商品が複数ある場合は、`items` リストとして
+  [{{"product_id":string,"quantity":number}}, ...]
+として返却し、`customer_name` と `delivery_date` も含めてください。
 
 【本文】
 {text}
 
-例:
+例1: 単一商品
 入力: 「ご注文者様: 山田屋、商品:A001、個数:3、お届け希望日:2025-07-20」
-出力: {{"customer_name":"山田屋","product_id":"A001","quantity":3,"delivery_date":"2025-07-20"}}
+出力: {{"customer_name":"山田屋","items":[{{"product_id":"A001","quantity":3}}],"delivery_date":"2025-07-20"}}
+
+例2: 複数商品
+入力:
+  商品:A001 数量:2
+  商品:B002 数量:1
+  配送希望日:2025-07-20
+出力: {{"customer_name":"","items":[{{"product_id":"A001","quantity":2}},{{"product_id":"B002","quantity":1}}],"delivery_date":"2025-07-20"}}
 
 ---- この形式で JSON を返してください ----
 """
