@@ -7,10 +7,10 @@ def clear_env(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
-from datetime import date
+from datetime import date  # noqa: E402
 
-from src.phase2.llm_stub import extract_order_fields
-from src.phase2.transform import OrderData, parse_order
+from src.phase2.llm_stub import extract_order_fields  # noqa: E402
+from src.phase2.transform import OrderData, parse_order  # noqa: E402
 
 SAMPLE_MULTI = """
 顧客: テスト商店

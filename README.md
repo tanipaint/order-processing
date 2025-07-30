@@ -114,8 +114,9 @@ for raw in raw_emails:
 データベースにサンプルの顧客・注文データを登録するには、以下を実行します。
 
 ```bash
-python3 -m src.phase4.seed_customers  # customers テーブル登録
-python3 -m src.phase4.seed_orders     # orders テーブル登録
+python3 -m src.phase4.seed_customers      # customers テーブル登録
+python3 -m src.phase4.seed_orders         # orders テーブル登録（ヘッダー）
+python3 -m src.phase4.seed_order_details # order_details テーブル登録（明細）
 ```
 
 ## タスク管理

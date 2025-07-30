@@ -1,6 +1,7 @@
 """Phase3: Slack 注文通知メッセージフォーマット設計"""
 
 import json
+import re
 from typing import Any, Dict, List
 
 
@@ -35,13 +36,26 @@ def build_order_notification(
     else:
         truncated = body
 
+    # 受信テキストからメールアドレスを抽出してペイロードに含める
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", truncated)
+    if email_match:
+        extracted["email"] = email_match.group(0)
     # ボタン押下時のハンドラで使用するため、抽出データをJSONでvalueに埋め込む
-    order_payload = {
-        "customer_name": extracted.get("customer_name"),
-        "product_id": extracted.get("product_id"),
-        "quantity": extracted.get("quantity"),
-        "delivery_date": str(extracted.get("delivery_date")),
-    }
+    # Slackアクションのvalueに渡すペイロード
+    if "items" in extracted:
+        # 複数商品の場合
+        order_payload = {
+            "customer_name": extracted.get("customer_name"),
+            "delivery_date": str(extracted.get("delivery_date")),
+            "items": extracted.get("items"),
+        }
+    else:
+        order_payload = {
+            "customer_name": extracted.get("customer_name"),
+            "product_id": extracted.get("product_id"),
+            "quantity": extracted.get("quantity"),
+            "delivery_date": str(extracted.get("delivery_date")),
+        }
     blocks: List[Dict[str, Any]] = []
     # 見出し
     blocks.append(
@@ -58,13 +72,22 @@ def build_order_notification(
         }
     )
     # 抽出内容
-    detail_lines = [
-        f"- 顧客: {extracted.get('customer_name')}",
-        f"- 商品: {extracted.get('product_id')}",
-        f"- 数量: {extracted.get('quantity')}",
-        f"- 配送希望日: {extracted.get('delivery_date')}",
-        f"- 在庫: {stock_status}",
-    ]
+    detail_lines = []
+    # 顧客・日時
+    detail_lines.append(f"- 顧客: {extracted.get('customer_name')}")
+    detail_lines.append(f"- 配送希望日: {extracted.get('delivery_date')}")
+    # 商品一覧
+    if "items" in extracted:
+        detail_lines.append("- 商品一覧:")
+        for item in extracted.get("items", []):
+            pid = item.get("product_id")
+            qty = item.get("quantity")
+            detail_lines.append(f"  • 商品: {pid} × {qty}")
+    else:
+        detail_lines.append(f"- 商品: {extracted.get('product_id')}")
+        detail_lines.append(f"- 数量: {extracted.get('quantity')}")
+    # 在庫状況
+    detail_lines.append(f"- 在庫: {stock_status}")
     blocks.append(
         {
             "type": "section",
