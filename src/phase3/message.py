@@ -42,11 +42,18 @@ def build_order_notification(
         extracted["email"] = email_match.group(0)
     # ボタン押下時のハンドラで使用するため、抽出データをJSONでvalueに埋め込む
     # Slackアクションのvalueに渡すペイロード
+    # 押下時ハンドラで使用する抽出データをJSONで埋め込む
+    date_val = extracted.get("delivery_date")
+    # 文字列化（dateオブジェクト対応）
+    date_str = None
+    if date_val:
+        date_str = (
+            date_val.isoformat() if hasattr(date_val, "isoformat") else str(date_val)
+        )
     if "items" in extracted:
         # 複数商品の場合
         order_payload = {
             "customer_name": extracted.get("customer_name"),
-            "delivery_date": str(extracted.get("delivery_date")),
             "items": extracted.get("items"),
         }
     else:
@@ -54,8 +61,10 @@ def build_order_notification(
             "customer_name": extracted.get("customer_name"),
             "product_id": extracted.get("product_id"),
             "quantity": extracted.get("quantity"),
-            "delivery_date": str(extracted.get("delivery_date")),
         }
+    # 配送希望日を含める場合のみ追加
+    if date_str:
+        order_payload["delivery_date"] = date_str
     blocks: List[Dict[str, Any]] = []
     # 見出し
     blocks.append(

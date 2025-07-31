@@ -66,10 +66,12 @@ def main():
                     ]
                     extracted = {
                         "customer_name": order[0].customer_name,
-                        "delivery_date": str(order[0].delivery_date),
                         "items": items,
-                        # メールアドレスが本文にあれば追加
                     }
+                    # 配送日が取得できていれば追加
+                    if order[0].delivery_date:
+                        extracted["delivery_date"] = order[0].delivery_date
+                    # メールアドレスが本文にあれば追加
                     # 在庫チェック: 全アイテムが在庫あり
                     in_stock = all(
                         order_service.check_stock(o.product_id, o.quantity)

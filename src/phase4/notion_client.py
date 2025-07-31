@@ -146,12 +146,16 @@ class NotionClient:
             props: Dict[str, Any] = {
                 "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
                 "total_price": {"number": data["total_price"]},
-                "delivery_date": {"date": {"start": data["delivery_date"]}},
                 "status": {"select": {"name": data.get("status", "")}},
                 "approved_by": {
                     "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
                 },
             }
+            # delivery_date が設定されていれば追加
+            dd = data.get("delivery_date")
+            if dd:
+                dd_str = dd.isoformat() if hasattr(dd, "isoformat") else str(dd)
+                props["delivery_date"] = {"date": {"start": dd_str}}
             if data.get("customer_page_id"):
                 props["customers"] = {"relation": [{"id": data["customer_page_id"]}]}
             payload = {
@@ -169,17 +173,19 @@ class NotionClient:
             props: Dict[str, Any] = {
                 "order_id": {"title": [{"text": {"content": data["order_id"]}}]},
                 "quantity": {"number": data["quantity"]},
-                "delivery_date": {"date": {"start": data["delivery_date"]}},
                 "status": {"select": {"name": data.get("status", "")}},
                 "approved_by": {
                     "rich_text": [{"text": {"content": data.get("approved_by", "")}}]
                 },
-                "created_at": {
-                    "date": {
-                        "start": data.get("created_at", datetime.utcnow().isoformat())
-                    }
-                },
             }
+            # delivery_date が設定されていれば追加
+            dd2 = data.get("delivery_date")
+            if dd2:
+                dd2_str = dd2.isoformat() if hasattr(dd2, "isoformat") else str(dd2)
+                props["delivery_date"] = {"date": {"start": dd2_str}}
+            # created_at は必須なので常に追加
+            ca = data.get("created_at") or datetime.utcnow().isoformat()
+            props["created_at"] = {"date": {"start": ca}}
             if cust_page_id:
                 props["customers"] = {"relation": [{"id": cust_page_id}]}
             if prod_page_id:
