@@ -96,16 +96,26 @@ def extract_metadata_from_text(text: str) -> dict:
     m_c = re.search(r"顧客[:：]\s*(.+)", text)
     if m_c:
         meta["customer_name"] = m_c.group(1).strip()
-    m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", text)
+    # 配送希望日 or 納期で抽出
+    m_d = re.search(r"(?:配送希望日|納期)[:：]\s*([\d年月日\-]+)", text)
     if m_d:
         raw = m_d.group(1).strip()
-        # 年/月補完
-        if re.fullmatch(r"\d{4}$", raw):
-            raw = f"{raw}-01-01"
-        elif re.fullmatch(r"\d{4}-\d{2}$", raw):
-            raw = f"{raw}-01"
+        # 日本語表記 "YYYY年M月D日" を ISO 形式へ変換
+        m_jp = re.match(r"(\d{2,4})年(\d{1,2})月(\d{1,2})日", raw)
+        if m_jp:
+            y, mo, d = m_jp.groups()
+            if len(y) == 2:
+                y = "20" + y
+            raw_iso = f"{int(y):04d}-{int(mo):02d}-{int(d):02d}"
+        else:
+            raw_iso = raw
+        # 年月のみ or 年のみ補完
+        if re.fullmatch(r"\d{4}$", raw_iso):
+            raw_iso = f"{raw_iso}-01-01"
+        elif re.fullmatch(r"\d{4}-\d{2}$", raw_iso):
+            raw_iso = f"{raw_iso}-01"
         try:
-            meta["delivery_date"] = date.fromisoformat(raw)
+            meta["delivery_date"] = date.fromisoformat(raw_iso)
         except ValueError:
             pass
     return meta
