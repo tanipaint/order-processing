@@ -93,14 +93,36 @@ def parse_email_body(raw_email: bytes) -> str:
     # Walk parts to collect body text and PDF attachment
     if msg.is_multipart():
         for part in msg.walk():
+            filename = part.get_filename() or ""
             ctype = part.get_content_type()
             disp = part.get("Content-Disposition", "")
-            # PDF attachment
-            if ctype == "application/pdf" or (
-                "attachment" in disp and ctype == "application/octet-stream"
+            # PDF attachment by content type or file extension
+            if (
+                ctype == "application/pdf"
+                or filename.lower().endswith(".pdf")
+                or ("attachment" in disp and ctype == "application/octet-stream")
             ):
-                pdf_payload = part.get_payload(decode=True)
+                try:
+                    pdf_payload = part.get_payload(decode=True)
+                    logger.debug(
+                        f"Detected PDF attachment: {filename or '[no name]'}, size={len(pdf_payload) if pdf_payload else 0}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to decode PDF attachment {filename}: {e}")
                 continue
+            # Fallback: detect PDF by signature even if content type not set correctly
+            try:
+                payload = part.get_payload(decode=True)
+                if isinstance(
+                    payload, (bytes, bytearray)
+                ) and payload.lstrip().startswith(b"%PDF"):
+                    pdf_payload = payload
+                    logger.debug(
+                        f"Detected PDF attachment by signature in part: {filename or '[no name]'}, size={len(pdf_payload)}"
+                    )
+                    continue
+            except Exception:
+                pass
             # text/plain body parts
             if ctype == "text/plain" and "attachment" not in disp:
                 charset = part.get_content_charset() or "utf-8"
@@ -113,8 +135,7 @@ def parse_email_body(raw_email: bytes) -> str:
             payload = msg.get_payload(decode=True) or b""
             body_texts.append(payload.decode(charset, errors="replace"))
     body = "\n".join(body_texts)
-    # If PDF attachment found, return both body text and PDF bytes
-    if pdf_payload:
+    # Return dict with PDF bytes if found, else return text
+    if pdf_payload is not None:
         return {"body": body, "pdf": pdf_payload}
-    # Otherwise return body text
     return body

@@ -1,4 +1,5 @@
 """Phase2: 構造化データ変換コンポーネント"""
+import logging
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -68,6 +69,9 @@ def parse_order(text: str) -> OrderData:
         # str or bytes fallback
         ocr_text = ocr_process(text)
     fields = extract_order_fields(ocr_text)
+    # OCR結果と抽出フィールドをログ出力（テキスト調査用）
+    logging.getLogger(__name__).debug("OCR text for parse_order:\n%s", ocr_text)
+    logging.getLogger(__name__).debug("Extracted fields from LLM stub: %s", fields)
     # フォールバック: items 空かつ単一商品も抽出されない場合は regex で抽出
     if not fields.get("items") and not fields.get("product_id"):
         # 顧客名抽出
