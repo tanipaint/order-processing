@@ -1,11 +1,13 @@
 """Phase2: 構造化データ変換コンポーネント"""
-import logging
 import re
 from dataclasses import dataclass
 from datetime import date
 from io import BytesIO
 
-import pdfplumber
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
 
 from src.phase2.llm_stub import extract_order_fields
 from src.phase2.ocr_stub import ocr_process
@@ -19,156 +21,189 @@ class OrderData:
     delivery_date: date
 
 
-def parse_order(text: str) -> OrderData:
-    """テキストを受け取り、OCR→LLM抽出→OrderDataに変換するパイプライン"""
-    # text may be str, bytes, or dict with body/pdf keys
-    ocr_text = ""
-    if isinstance(text, dict) and text.get("pdf") is not None:
-        body = text.get("body", "")
-        pdf_bytes = text.get("pdf")
-        # 1) Try table extraction via pdfplumber
-        items = []
+# --- helper functions --------------------------------------------------
+def extract_items_from_pdf(pdf_bytes: bytes) -> list[dict]:
+    """PDF内のテーブルから複数商品のproduct_id, quantityリストを抽出"""
+    items: list[dict] = []
+    if not pdfplumber:
+        return []
+    try:
+        with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                tables = page.extract_tables() or []
+                for table in tables:
+                    # header row 判定: 商品/数量 または Product/Quantity
+                    header = table[0] if table else []
+                    has_prod = any(
+                        cell and ("商品" in cell or "Product" in cell) for cell in header
+                    )
+                    has_qty = any(
+                        cell and ("数量" in cell or "Quantity" in cell) for cell in header
+                    )
+                    if not (has_prod and has_qty):
+                        continue
+                    # データ行の読み込み
+                    for row in table[1:]:
+                        if not row or len(row) < 2:
+                            continue
+                        pid = (row[0] or "").strip()
+                        qty_str = (row[1] or "").strip()
+                        if not pid or not qty_str.isdigit():
+                            continue
+                        items.append({"product_id": pid, "quantity": int(qty_str)})
+                    if items:
+                        return items
+    except Exception:
+        pass
+    # PDFテーブル抽出で取得できなかった場合のフォールバック（日本語請求書形式）
+    if not items:
+        try:
+            text = extract_text_from_pdf(pdf_bytes)
+            for line in text.splitlines():
+                line_s = line.strip()
+                # パターン: 品名 + 単価 + 数量 + 金額
+                m = re.match(r"^(.+?)\s+[\d,]+\s+(\d+)\s+[\d,]+$", line_s)
+                if m:
+                    name = m.group(1).strip()
+                    qty = int(m.group(2))
+                    items.append({"product_id": name, "quantity": qty})
+        except Exception:
+            pass
+    return items
+
+
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    """PDFからテキスト抽出。抽出できない場合はOCRスタブを実行"""
+    texts: list[str] = []
+    if pdfplumber:
         try:
             with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
                 for page in pdf.pages:
-                    tables = page.extract_tables()
-                    for table in tables or []:
-                        # assume first row is header
-                        for row in table[1:]:
-                            if not row or len(row) < 2:
-                                continue
-                            pid = (row[0] or "").strip()
-                            q = (row[1] or "").strip()
-                            if pid and q.isdigit():
-                                items.append((pid, int(q)))
-            if items:
-                # Build multi-item order directly
-                # Extract customer_name and delivery_date from body
-                fields = extract_order_fields(body)
-                # Build OrderData list
-                orders = []
-                # parse delivery_date
-                raw_date = fields.get("delivery_date", "")
-                d = date.fromisoformat(raw_date) if raw_date else None
-                for pid, qty in items:
-                    orders.append(
-                        OrderData(
-                            customer_name=fields.get("customer_name", ""),
-                            product_id=pid,
-                            quantity=qty,
-                            delivery_date=d,
-                        )
-                    )
-                return orders  # type: ignore
+                    page_text = page.extract_text() or ""
+                    texts.append(page_text)
+            raw = "\n".join(texts).strip()
+            if raw:
+                return raw
         except Exception:
             pass
-        # Fallback: combine body and OCR text
-        ocr_pdf_text = ocr_process(pdf_bytes)
-        ocr_text = body + "\n" + ocr_pdf_text
-    else:
-        # str or bytes fallback
-        ocr_text = ocr_process(text)
-    fields = extract_order_fields(ocr_text)
-    # OCR結果と抽出フィールドをログ出力（テキスト調査用）
-    logging.getLogger(__name__).debug("OCR text for parse_order:\n%s", ocr_text)
-    logging.getLogger(__name__).debug("Extracted fields from LLM stub: %s", fields)
-    # フォールバック: items 空かつ単一商品も抽出されない場合は regex で抽出
-    if not fields.get("items") and not fields.get("product_id"):
-        # 顧客名抽出
-        m_c = re.search(r"顧客[:：]\s*(.+)", ocr_text)
-        if m_c:
-            fields["customer_name"] = m_c.group(1).strip()
-        # 配送希望日抽出
-        m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", ocr_text)
-        if m_d:
-            fields["delivery_date"] = m_d.group(1).strip()
-        # 商品・数量抽出
-        prods = re.findall(r"商品[:：]\s*([A-Za-z0-9]+)", ocr_text)
-        qtys = re.findall(r"数量[:：]\s*(\d+)", ocr_text)
-        if len(prods) > 1 and len(prods) == len(qtys):
-            fields["items"] = [
-                {"product_id": p, "quantity": int(q)} for p, q in zip(prods, qtys)
-            ]
-        elif prods and qtys:
-            fields["product_id"] = prods[0]
-            fields["quantity"] = int(qtys[0])
-    # LLM抽出で空のitemsかつproduct_id未設定の場合は正規表現ベースのフォールバック
-    if not fields.get("items") and not fields.get("product_id"):
-        # 顧客名
-        m_c = re.search(r"顧客[:：]\s*(.+)", ocr_text)
-        if m_c:
-            fields["customer_name"] = m_c.group(1).strip()
-        # 配送希望日
-        m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", ocr_text)
-        if m_d:
-            fields["delivery_date"] = m_d.group(1).strip()
-        # 商品と数量
-        prods = re.findall(r"商品[:：]\s*([A-Za-z0-9]+)", ocr_text)
-        qtys = re.findall(r"数量[:：]\s*(\d+)", ocr_text)
-        if len(prods) > 1 and len(prods) == len(qtys):
-            fields["items"] = [
-                {"product_id": p, "quantity": int(q)} for p, q in zip(prods, qtys)
-            ]
-        elif prods and qtys:
-            fields["product_id"] = prods[0]
-            fields["quantity"] = int(qtys[0])
-    # 複数商品対応: items リストが存在し、かつ要素がある場合は複数の OrderData を返却
-    if "items" in fields and isinstance(fields["items"], list) and fields["items"]:
-        # 必須フィールドチェック (customer_name, delivery_date)
-        for key in ("customer_name", "delivery_date"):
-            if key not in fields:
-                raise ValueError(
-                    f"Missing required field '{key}' for multi-item order: {fields!r}"
-                )
-        raw_date = fields.get("delivery_date") or ""
-        # 日付補完
-        if re.fullmatch(r"\d{4}", raw_date):
-            raw_date = f"{raw_date}-01-01"
-        elif re.fullmatch(r"\d{4}-\d{2}", raw_date):
-            raw_date = f"{raw_date}-01"
+    # フォールバック: OCR
+    return ocr_process(pdf_bytes)
+
+
+def extract_metadata_from_text(text: str) -> dict:
+    """本文テキストから顧客名と配送希望日を抽出し、配送日はdateオブジェクトで返す"""
+    meta: dict = {}
+    m_c = re.search(r"顧客[:：]\s*(.+)", text)
+    if m_c:
+        meta["customer_name"] = m_c.group(1).strip()
+    m_d = re.search(r"配送希望日[:：]\s*([\d\-]+)", text)
+    if m_d:
+        raw = m_d.group(1).strip()
+        # 年/月補完
+        if re.fullmatch(r"\d{4}$", raw):
+            raw = f"{raw}-01-01"
+        elif re.fullmatch(r"\d{4}-\d{2}$", raw):
+            raw = f"{raw}-01"
         try:
-            d = date.fromisoformat(raw_date)
+            meta["delivery_date"] = date.fromisoformat(raw)
         except ValueError:
-            raise ValueError(
-                f"Invalid delivery_date format: {raw_date!r}, expected YYYY-MM-DD"
-            )
-        orders = []
-        for item in fields["items"]:
+            pass
+    return meta
+
+
+def build_orders_from_fields(fields: dict) -> list:
+    """LLMまたはregex抽出結果のfieldsからOrderDataリストを構築"""
+    orders: list[OrderData] = []
+    # 複数商品
+    if isinstance(fields.get("items"), list) and fields["items"]:
+        meta = {
+            "customer_name": fields.get("customer_name", ""),
+            "delivery_date": fields.get("delivery_date"),
+        }
+        # delivery_date が文字列なら date に変換
+        if isinstance(meta["delivery_date"], str):
+            try:
+                meta["delivery_date"] = date.fromisoformat(meta["delivery_date"])
+            except Exception:
+                meta["delivery_date"] = None
+        for itm in fields["items"]:
             orders.append(
                 OrderData(
-                    customer_name=fields["customer_name"],
-                    product_id=item.get("product_id"),
-                    quantity=item.get("quantity"),
-                    delivery_date=d,
+                    customer_name=meta.get("customer_name", ""),
+                    product_id=itm.get("product_id"),
+                    quantity=itm.get("quantity"),
+                    delivery_date=meta.get("delivery_date"),
+                )
+            )
+        return orders
+    # 単一商品
+    # 必須フィールドチェック
+    for key in ("customer_name", "product_id", "quantity", "delivery_date"):
+        if key not in fields:
+            raise ValueError(
+                f"Missing required field '{key}' in parsed fields: {fields}"
+            )
+    raw = fields["delivery_date"]
+    if isinstance(raw, str):
+        try:
+            raw = date.fromisoformat(raw)
+        except Exception:
+            raise ValueError(f"Invalid delivery_date format: {fields['delivery_date']}")
+    orders.append(
+        OrderData(
+            customer_name=fields["customer_name"],
+            product_id=fields["product_id"],
+            quantity=fields["quantity"],
+            delivery_date=raw,
+        )
+    )
+    return orders
+
+
+def parse_order(input_data: any) -> list:  # type: ignore
+    """
+    注文データを解析し、複数／単一問わず OrderData リストで返却するパイプライン。
+    1) PDFテーブル抽出を試みる
+    2) テーブルなければ本文テキストをOCR/NLP
+    3) LLMスタブ or regex でフィールド抽出
+    """
+    # normalize input
+    pdf_bytes = None
+    body_text = ""
+    if isinstance(input_data, dict) and input_data.get("pdf") is not None:
+        pdf_bytes = input_data.get("pdf")
+        body_text = input_data.get("body", "") or ""
+
+    # 1) PDFテーブル抽出
+    items = []
+    if pdf_bytes:
+        items = extract_items_from_pdf(pdf_bytes)
+    # テーブルから明細取得できた場合、メタ情報を本文から抽出して返す
+    if items:
+        text_for_meta = body_text or extract_text_from_pdf(pdf_bytes)
+        meta = extract_metadata_from_text(text_for_meta)
+        orders = []
+        for itm in items:
+            orders.append(
+                OrderData(
+                    customer_name=meta.get("customer_name", ""),
+                    product_id=itm.get("product_id"),
+                    quantity=itm.get("quantity"),
+                    delivery_date=meta.get("delivery_date"),
                 )
             )
         return orders  # type: ignore
-    # 単一商品の場合
-    # 必須フィールドの検証
-    required = ["customer_name", "product_id", "quantity", "delivery_date"]
-    missing = [k for k in required if k not in fields]
-    if missing:
-        raise ValueError(
-            f"Missing required fields in extracted data: {missing}, extracted={fields!r}"
-        )
-    # ISOフォーマットの日付文字列をdateオブジェクトに変換
-    raw_date = fields.get("delivery_date", "")
-    if not raw_date:
-        raise ValueError(f"Missing delivery_date in extracted fields: {fields!r}")
-    # 簡易対応: 年のみ or 年-月のみの場合は先頭日を補完
-    if re.fullmatch(r"\d{4}", raw_date):
-        raw_date = f"{raw_date}-01-01"
-    elif re.fullmatch(r"\d{4}-\d{2}", raw_date):
-        raw_date = f"{raw_date}-01"
-    try:
-        d = date.fromisoformat(raw_date)
-    except ValueError:
-        raise ValueError(
-            f"Invalid delivery_date format: {raw_date!r}, expected YYYY-MM-DD"
-        )
-    return OrderData(
-        customer_name=fields["customer_name"],
-        product_id=fields["product_id"],
-        quantity=fields["quantity"],
-        delivery_date=d,
-    )
+
+    # 2) 本文テキスト取得
+    if pdf_bytes:
+        ocr_pdf = extract_text_from_pdf(pdf_bytes)
+        text = (body_text + "\n" + ocr_pdf).strip()
+    else:
+        if isinstance(input_data, bytes):
+            text = input_data.decode(errors="ignore")
+        else:
+            text = str(input_data)
+
+    # 3) フィールド抽出（LLM or regex）
+    fields = extract_order_fields(text)
+    return build_orders_from_fields(fields)
