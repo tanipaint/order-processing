@@ -16,6 +16,9 @@ def test_parse_order_from_pdf_multi():
     # PDFファイルから複数商品注文を抽出できる
     root = Path(__file__).resolve().parents[1]
     pdf_file = root / "doc" / "001_purchase_order.pdf"
+    # サンプルPDFが存在しない場合はスキップ（CI環境などで未配置の場合）
+    if not pdf_file.exists():
+        pytest.skip(f"Sample PDF not found at {pdf_file}, skipping PDF multi-item test")
     pdf_bytes = pdf_file.read_bytes()
     # body が空でもテーブル抽出でitems取得
     orders = parse_order({"pdf": pdf_bytes, "body": ""})
