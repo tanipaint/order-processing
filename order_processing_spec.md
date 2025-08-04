@@ -32,7 +32,7 @@ sequenceDiagram
     participant Staff
 
     Customer->>AI: 注文送信（FAX/メール）
-    AI->>AI: 内容抽出（OCR/NLP → LLMによるJSON出力）
+    AI->>AI: 注文内容抽出（PDFテーブル抽出優先 → 本文テキストOCR/NLP → LLMまたは正規表現でJSON出力）
     AI->>Notion: 在庫・顧客データ参照
     AI->>Slack: 注文データ＋在庫を通知
     Staff->>Slack: 承認ボタン押下

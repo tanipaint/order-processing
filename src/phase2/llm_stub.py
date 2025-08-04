@@ -41,16 +41,24 @@ def extract_order_fields(text: str) -> dict:
                     data["delivery_date"] = m.group(1).strip()
                 data["items"] = items
                 return data
-    # 日本語ヘッダーで抽出できない場合の汎用テーブル抽出 (英語PDF対応)
-    # 各行を「コード 数量」の2トークンで解析
+    # フォーマット不定のテーブル行から英語レイアウトの複数商品を抽出
     generic_items = []
     for line in lines:
         parts = line.strip().split()
-        if len(parts) == 2 and parts[0].isalnum() and parts[1].isdigit():
-            generic_items.append({"product_id": parts[0], "quantity": int(parts[1])})
+        pid = None
+        qty = None
+        # 最初の英数字トークンをproduct_id、その後の数値トークンをquantityとみなす
+        for token in parts:
+            if pid is None and token.isalnum():
+                pid = token
+            elif pid and token.isdigit():
+                qty = int(token)
+                break
+        if pid and qty is not None:
+            generic_items.append({"product_id": pid, "quantity": qty})
     if generic_items:
         return {"items": generic_items}
-    # テーブル抽出対象でない場合、環境変数で切り替え
+    # テーブル抽出対象でない場合、環境変数 OPENAI_API_KEY の有無でスタブ／本番APIを切り替え
     if not os.getenv("OPENAI_API_KEY"):
         # 戻り値フォーマット互換のため旧スタブ実装
         data: dict = {}
@@ -97,6 +105,15 @@ def extract_order_fields(text: str) -> dict:
         m = re.search(r"数量[:：]\s*(\d+)", text)
         if m:
             data["quantity"] = int(m.group(1))
+        # 単一商品が正しく取得できていればそのまま返却
+        if "product_id" in data and "quantity" in data:
+            return data
+        # 最終フォールバック: 任意の英数字コードと数値ペアを抽出
+        generic2 = []
+        for pid, qty in re.findall(r"([A-Za-z0-9]{2,})\D+(\d+)", text):
+            generic2.append({"product_id": pid, "quantity": int(qty)})
+        if generic2:
+            return {"items": generic2}
         return data
     openai.api_key = os.getenv("OPENAI_API_KEY")
     prompt = f"""
