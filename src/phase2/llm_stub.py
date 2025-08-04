@@ -58,7 +58,7 @@ def extract_order_fields(text: str) -> dict:
             generic_items.append({"product_id": pid, "quantity": qty})
     if generic_items:
         return {"items": generic_items}
-    # テーブル抽出対象でない場合、環境変数で切り替え
+    # テーブル抽出対象でない場合、環境変数 OPENAI_API_KEY の有無でスタブ／本番APIを切り替え
     if not os.getenv("OPENAI_API_KEY"):
         # 戻り値フォーマット互換のため旧スタブ実装
         data: dict = {}
@@ -105,6 +105,9 @@ def extract_order_fields(text: str) -> dict:
         m = re.search(r"数量[:：]\s*(\d+)", text)
         if m:
             data["quantity"] = int(m.group(1))
+        # 単一商品が正しく取得できていればそのまま返却
+        if "product_id" in data and "quantity" in data:
+            return data
         # 最終フォールバック: 任意の英数字コードと数値ペアを抽出
         generic2 = []
         for pid, qty in re.findall(r"([A-Za-z0-9]{2,})\D+(\d+)", text):

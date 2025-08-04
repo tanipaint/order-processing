@@ -216,4 +216,8 @@ def parse_order(input_data: any) -> list:  # type: ignore
 
     # 3) フィールド抽出（LLM or regex）
     fields = extract_order_fields(text)
-    return build_orders_from_fields(fields)
+    orders = build_orders_from_fields(fields)
+    # 単一注文の場合は OrderData を返却、それ以外はリストを返却
+    if isinstance(orders, list) and len(orders) == 1:
+        return orders[0]
+    return orders
